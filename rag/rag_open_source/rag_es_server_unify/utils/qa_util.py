@@ -6,7 +6,8 @@ from log.logger import logger
 from settings import DELETE_BACTH_SIZE
 from utils.util import validate_index_name
 from utils.meta_util import retype_meta_datas, build_doc_meta_query
-from utils.emb_util import get_embs
+from utils.emb_util import get_embs, get_multimodal_embs
+from model.model_manager import is_multimodal_model
 
 def delete_data_by_qa_info(index_name: str, qa_name: str, qa_id: str):
     """根据索引名和 qa_name, qa_id字段 精确匹配删除文档，并返回删除操作的状态"""
@@ -485,7 +486,10 @@ def qa_rescore_bm25_score(index_name, query, search_list = []):
 def vector_search(index_name, base_names, query, top_k, min_score, embedding_model_id="", meta_filter_list=[]):
     """根据查询检索数据，仅返回分数高于 min_score 的文档，并按分数从高到低排序，支持多知识库"""
 
-    query_vector = get_embs([query], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
+    if is_multimodal_model(embedding_model_id):
+        query_vector = get_multimodal_embs([{"text": query}], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
+    else:
+        query_vector = get_embs([query], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
     field_name = f"q_{len(query_vector)}_content_vector"
 
     search_body = {

@@ -22,6 +22,7 @@ type RagInfo struct {
 	KnowledgeBaseConfig   KnowledgeBaseConfig `gorm:"embedded;embeddedPrefix:kb_"`
 	QAKnowledgebaseConfig string              `gorm:"column:qa_knowledgebase_config;type:longtext;comment:问答库配置"`
 	SensitiveConfig       SensitiveConfig     `gorm:"embedded;embeddedPrefix:sensitive_"`
+	VisionConfig          VisionConfig        `gorm:"embedded;embeddedPrefix:vision_"`
 	PublicModel
 }
 
@@ -57,6 +58,10 @@ type KnowledgeBaseConfig struct {
 type SensitiveConfig struct {
 	Enable   bool   `json:"enable" gorm:"column:enable;type:tinyint(1);comment:是否启用安全护栏"`
 	TableIds string `json:"tableIds" gorm:"column:table_ids;type:text;comment:敏感词表ID列表"`
+}
+
+type VisionConfig struct {
+	PicNum int32 `json:"picNum" gorm:"column:pic_num;type:int(11);comment:图片数量"`
 }
 
 type PublicModel struct {

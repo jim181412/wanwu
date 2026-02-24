@@ -26,7 +26,7 @@ func (c *Client) CreateCustomPrompt(ctx context.Context, avatarPath, name, desc,
 		return "", toErrStatus("assistant_custom_prompt_create", err.Error())
 	}
 	if count > 0 {
-		return "", toErrStatus("assistant_custom_prompt_create", "custom prompt already exists")
+		return "", toErrStatus("assistant_custom_prompt_exist")
 	}
 
 	// 创建记录

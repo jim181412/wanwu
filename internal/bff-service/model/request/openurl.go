@@ -20,3 +20,9 @@ type UrlConversionStreamRequest struct {
 func (c *UrlConversionStreamRequest) Check() error {
 	return nil
 }
+
+type UrlQuestionRecommendRequest struct {
+	ConversationId string `json:"conversationId" form:"conversionId"`
+	Query          string `json:"query" form:"query"  validate:"required"`
+	CommonCheck
+}

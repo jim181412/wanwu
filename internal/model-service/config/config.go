@@ -33,6 +33,14 @@ type DBConfig struct {
 	Name string `json:"name" mapstructure:"name"`
 }
 
+const (
+	ScopeTypeStr_PRIVATE  = "private"
+	ScopeTypeStr_PUBLIC   = "public"
+	ModelScopeTypePrivate = "1"
+	ModelScopeTypePublic  = "2"
+	ModelScopeTypeOrg     = "3"
+)
+
 func LoadConfig(in string) error {
 	_c = &Config{}
 	return util.LoadConfig(in, _c)

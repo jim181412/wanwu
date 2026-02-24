@@ -44,9 +44,9 @@ type UpdateKnowledgeReq struct {
 
 type KnowledgeHitReq struct {
 	KnowledgeList        []*AppKnowledgeBase   `json:"knowledgeList"`
-	Question             string                `json:"question"   validate:"required"`
 	KnowledgeMatchParams *KnowledgeMatchParams `json:"knowledgeMatchParams"   validate:"required"`
-	CommonCheck
+	Question             string                `json:"question"`
+	DocInfo              []*DocInfo            `json:"docInfoList"` //上传文档列表
 }
 
 type KnowledgeMatchParams struct {
@@ -61,6 +61,11 @@ type KnowledgeMatchParams struct {
 	TermWeightEnable  bool    `json:"termWeightEnable"`               // 关键词系数开关
 	UseGraph          bool    `json:"useGraph"`                       // 是否使用知识图谱
 	CommonCheck
+}
+
+type KnowledgeAttachment struct {
+	FileUrl  string `json:"fileUrl"`  // 文件原始url地址
+	FileType string `json:"fileType"` // 文件类型 image: 图片
 }
 
 type EmbeddingModel struct {
@@ -160,7 +165,7 @@ type RagSearchKnowledgeBaseReq struct {
 	KnowledgeUser        map[string][]*RagKnowledgeInfo `json:"knowledge_base_info"`
 	UseGraph             bool                           `json:"use_graph"` // 是否启动知识图谱查询
 	UserId               string                         `json:"userId" validate:"required"`
-	Question             string                         `json:"question" validate:"required"`
+	Question             string                         `json:"question" `
 	KnowledgeIdList      []string                       `json:"knowledgeIdList,omitempty" validate:"required"`
 	Threshold            float64                        `json:"threshold"`
 	TopK                 int32                          `json:"topK"`
@@ -173,7 +178,13 @@ type RagSearchKnowledgeBaseReq struct {
 	MetaFilterConditions []*MetadataFilterItem          `json:"metadata_filtering_conditions"` // 元数据过滤条件
 	AutoCitation         bool                           `json:"auto_citation"`                 // 是否启动知识图谱查询
 	RewriteQuery         bool                           `json:"rewrite_query"`                 // 是否query改写
-	CommonCheck
+	EnableVision         bool                           `json:"enable_vision"`                 // 召回结果是否包含多模态文件
+	AttachmentFiles      []*RagKnowledgeAttachment      `json:"attachment_files"`              // 上传的多模态文件
+}
+
+type RagKnowledgeAttachment struct {
+	FileType string `json:"file_type"`
+	FileUrl  string `json:"file_url"`
 }
 
 type RagKnowledgeChatReq struct {
@@ -202,6 +213,8 @@ type RagKnowledgeChatReq struct {
 	MetaFilter           bool                           `json:"metadata_filtering"`            // 元数据过滤开关
 	MetaFilterConditions []*MetadataFilterItem          `json:"metadata_filtering_conditions"` // 元数据过滤条件
 	UseGraph             bool                           `json:"use_graph"`                     // 是否启动知识图谱查询
+	EnableVision         bool                           `json:"enable_vision"`                 // 召回结果是否包含多模态文件
+	AttachmentFiles      []*RagKnowledgeAttachment      `json:"attachment_files"`              // 上传的多模态文件
 	CommonCheck
 }
 
@@ -325,6 +338,29 @@ func (c *CreateKnowledgeReq) Check() error {
 		}
 		if c.KnowledgeGraph.Switch && c.KnowledgeGraph.LLMModelId == "" {
 			return errors.New("knowledge graph llmModelId can not be empty")
+		}
+	}
+	return nil
+}
+
+func (c *RagSearchKnowledgeBaseReq) Check() error {
+	if len(c.AttachmentFiles) == 0 && c.Question == "" {
+		return errors.New("both question and attachmentFiles cannot be empty")
+	}
+	return nil
+}
+
+func (c *KnowledgeHitReq) Check() error {
+	if len(c.DocInfo) == 0 && c.Question == "" {
+		return errors.New("both docInfo and question cannot be empty")
+	}
+	// 纯图片搜索必须用多模态rerank
+	if c.Question == "" {
+		if c.KnowledgeMatchParams.RerankModelId == "" {
+			return errors.New("只输入图片必须选择多模态reranker")
+		}
+		if c.KnowledgeMatchParams.MatchType == "text" {
+			return errors.New("只输入图片不支持全文检索")
 		}
 	}
 	return nil

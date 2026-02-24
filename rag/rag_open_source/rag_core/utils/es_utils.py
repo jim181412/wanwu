@@ -2,14 +2,11 @@ import requests
 import json
 import uuid
 import os
+import logging
 
-from logging_config import setup_logging
 from settings import ES_BASE_URL, TIME_OUT
 
-logger_name = 'rag_es_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
+logger = logging.getLogger(__name__)
 
 
 def add_file(user_id, kb_name, file_name, file_meta, kb_id=""):
@@ -99,6 +96,7 @@ def add_es(user_id, kb_name, docs, file_name, kb_id=""):
 
         for doc in docs[i:i + batch_size]:
             chunk_dict = {
+                "content_type": "text",
                 "title": file_name,
                 "source_type": "RAG_KB",
                 "meta_data": doc["meta_data"]
@@ -162,28 +160,19 @@ def add_es(user_id, kb_name, docs, file_name, kb_id=""):
     return response_info
 
 
-def get_weighted_rerank(query, weights, search_list, top_k):
-    search_list_infos = {}
-    for item in search_list:
-        base_name = item["kb_name"]
-        user_id = item["user_id"]
+def kb_rescore(query, weights, search_list, top_k):
+    response_info = {"code": 0, "message": "", "data": {"sorted_scores": [], "sorted_search_list": []}}
+    if len(search_list) <= 0:
+        return response_info
 
-        if user_id not in search_list_infos:
-            search_list_infos[user_id] = {
-                "base_names": [],
-                "search_list": []
-            }
+    es_data = {
+        "query": query,
+        "weights": weights,
+        "search_list_infos": search_list
+    }
 
-        search_list_infos[user_id]["base_names"].append(base_name)
-        search_list_infos[user_id]["search_list"].append(item)
-
-    es_data = {}
-    es_data['query'] = query
-    es_data["weights"] = weights
-    es_data["search_list_infos"] = search_list_infos
     es_url = ES_BASE_URL + "/api/v1/rag/es/rescore"
     headers = {'Content-Type': 'application/json'}
-    response_info = {"code": 0, "message": "", "data": {"sorted_scores": [], "sorted_search_list": []}}
     try:
         if not search_list:
             return response_info
@@ -714,8 +703,8 @@ def full_text_search(user_id, base_names, question, top_k, search_by = "question
         logger.error(f"问答对全文检索请求异常, user_id: {user_id}, base_names: {base_names}, exception: {repr(e)}")
         return response_info
 
-def qa_weighted_rerank(query, weights, top_k, search_list_infos):
-    response_info = {'code': 0, "message": "成功", "data": {"search_list":[], "scores": []}}
+def qa_rescore(query, weights, top_k, search_list_infos):
+    response_info = {'code': 0, "message": "成功", "data": {"sorted_scores":[], "sorted_search_list": []}}
     es_data = {
         "query": query,
         "search_list_infos": search_list_infos,
@@ -725,22 +714,34 @@ def qa_weighted_rerank(query, weights, top_k, search_list_infos):
     es_url = ES_BASE_URL + "/api/v1/rag/es/qa_rescore"
     headers = {'Content-Type': 'application/json'}
 
-    if not search_list_infos:
+    try:
+        response = requests.post(es_url, headers=headers, json=es_data, timeout=TIME_OUT)
+        if response.status_code != 200:
+            logger.error(f"问答对权重重排序请求失败, query: {query}, search_list_infos: {search_list_infos}, response: {repr(response.text)}")
+            raise RuntimeError(str(response.text))
+
+        result_data = response.json()
+        if result_data['code'] != 0:
+            logger.error(f"问答对权重重排序请求失败, query: {query}, search_list_infos: {search_list_infos}, response: {result_data}")
+            raise RuntimeError(result_data['message'])
+
+        sorted_search_list= result_data['data']['search_list'][:top_k]
+        sorted_scores = result_data['data']['scores'][:top_k]
+        logger.info(f"问答对权重重排序请求成功, query: {query}, sorted_search_list: {sorted_search_list}, sorted_scores: {sorted_scores}")
+
+        return {
+            "code": 0,
+            "message": "",
+            "data": {
+                "sorted_scores": sorted_scores,
+                "sorted_search_list": sorted_search_list
+            }
+        }
+    except Exception as e:
+        response_info['code'] = 1
+        response_info['message'] = str(e)
+        logger.error(f"答对权重重排序请求异常, query: {query}, exception: {repr(e)}")
         return response_info
-    response = requests.post(es_url, headers=headers, json=es_data, timeout=TIME_OUT)
-    if response.status_code != 200:
-        logger.error(f"问答对权重重排序请求失败, search_list_infos: {search_list_infos}, response: {repr(response.text)}")
-        raise RuntimeError(str(response.text))
-
-    result_data = response.json()
-    if result_data['code'] != 0:
-        logger.error(f"问答对权重重排序请求失败, search_list_infos: {search_list_infos}, response: {result_data}")
-        raise RuntimeError(result_data['message'])
-
-    sorted_search_list= result_data['data']['search_list'][:top_k]
-    sorted_scores = result_data['data']['scores'][:top_k]
-    logger.info(f"问答对权重重排序请求成功, sorted_search_list: {sorted_search_list}, sorted_scores: {sorted_scores}")
-    return sorted_scores, sorted_search_list
 
 
 

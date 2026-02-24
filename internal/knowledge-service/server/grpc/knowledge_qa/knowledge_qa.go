@@ -152,7 +152,7 @@ func (s *Service) CreateQAPair(ctx context.Context, req *knowledgebase_qa_servic
 	//2.检查问题MD5
 	question := strings.Trim(req.Question, " ")
 	answer := strings.Trim(req.Answer, " ")
-	questionMD5 := util.MD5(question)
+	questionMD5 := wanwu_util.MD5([]byte(question))
 	err = orm.CheckKnowledgeQAPairQuestion(ctx, "", req.KnowledgeId, questionMD5)
 	if err != nil {
 		log.Errorf("check qa pair question md5 fail %v", err)
@@ -187,7 +187,7 @@ func (s *Service) UpdateQAPair(ctx context.Context, req *knowledgebase_qa_servic
 	//3.校验问答对
 	question := strings.Trim(req.Question, " ")
 	answer := strings.Trim(req.Answer, " ")
-	questionMD5 := util.MD5(question)
+	questionMD5 := wanwu_util.MD5([]byte(question))
 	if qaPair.Question == question && qaPair.Answer == answer {
 		return nil, nil
 	}

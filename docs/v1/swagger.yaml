@@ -280,6 +280,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -313,6 +316,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -352,6 +358,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -442,6 +451,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -493,6 +505,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -544,6 +559,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -604,6 +622,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -796,6 +817,12 @@ definitions:
     type: object
   request.AppKnowledgeBase:
     properties:
+      category:
+        description: 知识库类别 0-知识库，1-问答库，2-多模态知识库
+        type: integer
+      external:
+        description: 外部数据库标识
+        type: integer
       graphSwitch:
         description: 知识图谱开关
         type: integer
@@ -1383,6 +1410,11 @@ definitions:
     type: object
   request.ChatRagRequest:
     properties:
+      fileInfo:
+        description: 上传文档列表
+        items:
+          $ref: '#/definitions/request.ConversionStreamFile'
+        type: array
       history:
         items:
           $ref: '#/definitions/request.History'
@@ -1472,6 +1504,13 @@ definitions:
     - assistantId
     - prompt
     type: object
+  request.ConversationDeleteRequest:
+    properties:
+      assistantId:
+        type: string
+    required:
+    - assistantId
+    type: object
   request.ConversationIdRequest:
     properties:
       conversationId:
@@ -1502,8 +1541,6 @@ definitions:
         type: string
       systemPrompt:
         type: string
-      trial:
-        type: boolean
     required:
     - assistantId
     - prompt
@@ -1569,6 +1606,48 @@ definitions:
     required:
     - alias
     - knowledgeBaseIds
+    - name
+    type: object
+  request.CreateKnowledgeExternalAPIReq:
+    properties:
+      apiKey:
+        description: 外部知识库API Key
+        type: string
+      baseUrl:
+        description: 外部知识库API endpoint
+        type: string
+      description:
+        description: 外部知识库API描述
+        type: string
+      name:
+        description: 外部知识库API名称
+        type: string
+    required:
+    - apiKey
+    - baseUrl
+    - name
+    type: object
+  request.CreateKnowledgeExternalReq:
+    properties:
+      description:
+        description: 外部知识库描述
+        type: string
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      externalKnowledgeId:
+        description: 外部知识库 id
+        type: string
+      externalSource:
+        description: 外部来源
+        type: string
+      name:
+        description: 外部知识库名称
+        type: string
+    required:
+    - externalApiId
+    - externalKnowledgeId
+    - externalSource
     - name
     type: object
   request.CreateKnowledgeQAPairReq:
@@ -1925,6 +2004,22 @@ definitions:
     - exportRecordId
     - knowledgeId
     type: object
+  request.DeleteKnowledgeExternalAPIReq:
+    properties:
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+    required:
+    - externalApiId
+    type: object
+  request.DeleteKnowledgeExternalReq:
+    properties:
+      knowledgeId:
+        description: 知识库id
+        type: string
+    required:
+    - knowledgeId
+    type: object
   request.DeleteKnowledgeQAPairReq:
     properties:
       QAPairIdList:
@@ -1993,7 +2088,7 @@ definitions:
         description: asr模型id
         type: string
       docAnalyzer:
-        description: 文档解析类型 text / ocr  / model / asr / multimodalModel
+        description: 文档解析类型 text / ocr  / model / asr / multimodal
         items:
           type: string
         type: array
@@ -2023,7 +2118,7 @@ definitions:
         description: 知识库id
         type: string
       multimodalModelId:
-        description: 模态模型id
+        description: 多模态模型id
         type: string
       parserModelId:
         description: 模型解析或ocr模型id
@@ -2040,7 +2135,7 @@ definitions:
         description: asr模型id
         type: string
       docAnalyzer:
-        description: 文档解析类型 text / ocr  / model / asr / multimodalModel
+        description: 文档解析类型 text / ocr  / model / asr / multimodal
         items:
           type: string
         type: array
@@ -2070,7 +2165,7 @@ definitions:
         description: 知识库id
         type: string
       multimodalModelId:
-        description: 模态模型id
+        description: 多模态模型id
         type: string
       parserModelId:
         description: 模型解析或ocr模型id
@@ -2090,17 +2185,22 @@ definitions:
         description: 文档名称
         type: string
       docSize:
-        description: 文档类型
+        description: 文档大小，单位字节(Byte)
         type: integer
       docType:
-        description: 文档类型
+        description: 文档后缀
         type: string
       docUrl:
-        description: 文档url
+        description: 文档url（可选）
         type: string
     type: object
   request.DocListReq:
     properties:
+      docIdList:
+        description: 文档id列表，只用于返回所选文档的集合，该值不为空时，其他筛选条件将被忽略
+        items:
+          type: string
+        type: array
       docName:
         type: string
       graphStatus:
@@ -2293,6 +2393,8 @@ definitions:
       publishDate:
         description: 模型发布时间
         type: string
+      scopeType:
+        type: string
     required:
     - displayName
     - model
@@ -2333,6 +2435,11 @@ definitions:
     type: object
   request.KnowledgeHitReq:
     properties:
+      docInfoList:
+        description: 上传文档列表
+        items:
+          $ref: '#/definitions/request.DocInfo'
+        type: array
       knowledgeList:
         items:
           $ref: '#/definitions/request.AppKnowledgeBase'
@@ -2343,7 +2450,6 @@ definitions:
         type: string
     required:
     - knowledgeMatchParams
-    - question
     type: object
   request.KnowledgeMatchParams:
     properties:
@@ -2466,6 +2572,9 @@ definitions:
     properties:
       category:
         description: 0:知识库，1:问答库
+        type: integer
+      external:
+        description: -1:全部，0:内部知识库，1:外部知识库
         type: integer
       name:
         type: string
@@ -3052,7 +3161,6 @@ definitions:
         description: 用户问题
         type: string
       trial:
-        description: 是否试用
         type: boolean
     required:
     - assistantId
@@ -3104,6 +3212,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/request.AppSafetyConfig'
         description: 敏感词表配置
+      visionConfig:
+        allOf:
+        - $ref: '#/definitions/request.VisionConfig'
+        description: 视觉开关配置
     required:
     - knowledgeBaseConfig
     - modelConfig
@@ -3120,6 +3232,12 @@ definitions:
         type: string
     required:
     - ragId
+    type: object
+  request.RagUploadParams:
+    properties:
+      markdown:
+        description: 是否返回markdown格式url
+        type: boolean
     type: object
   request.RecommendConfig:
     properties:
@@ -3416,6 +3534,56 @@ definitions:
     - alias
     - id
     - knowledgeBaseIds
+    - name
+    type: object
+  request.UpdateKnowledgeExternalAPIReq:
+    properties:
+      apiKey:
+        description: 外部知识库API Key
+        type: string
+      baseUrl:
+        description: 外部知识库API endpoint
+        type: string
+      description:
+        description: 外部知识库API描述
+        type: string
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      name:
+        description: 外部知识库API名称
+        type: string
+    required:
+    - apiKey
+    - baseUrl
+    - externalApiId
+    - name
+    type: object
+  request.UpdateKnowledgeExternalReq:
+    properties:
+      description:
+        description: 描述
+        type: string
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      externalKnowledgeId:
+        description: 外部知识库 id
+        type: string
+      externalSource:
+        description: 外部知识库来源
+        type: string
+      knowledgeId:
+        description: 知识库id
+        type: string
+      name:
+        description: 名称
+        type: string
+    required:
+    - externalApiId
+    - externalKnowledgeId
+    - externalSource
+    - knowledgeId
     - name
     type: object
   request.UpdateKnowledgeQAPairReq:
@@ -3739,6 +3907,28 @@ definitions:
         description: 状态
         type: boolean
     type: object
+  response.AgentSkillDetail:
+    properties:
+      author:
+        description: 作者
+        type: string
+      avatar:
+        allOf:
+        - $ref: '#/definitions/request.Avatar'
+        description: 模板头像
+      desc:
+        description: 模板描述
+        type: string
+      name:
+        description: 模板名称
+        type: string
+      skillId:
+        description: 模板ID
+        type: string
+      skillMarkdown:
+        description: 模板markdown预览
+        type: string
+    type: object
   response.AnalysisDocUrlResp:
     properties:
       urlList:
@@ -3758,6 +3948,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/request.Avatar'
         description: 应用图标
+      category:
+        description: 智能体分类(1:单智能体,2:多智能体)
+        type: integer
       createdAt:
         description: 应用创建时间
         type: string
@@ -3863,7 +4056,7 @@ definitions:
         - $ref: '#/definitions/request.Avatar'
         description: 图标
       category:
-        description: 1.单智能体 2.多智能体
+        description: 智能体分类 1.单智能体 2.多智能体
         type: integer
       createdAt:
         description: 创建时间
@@ -4152,6 +4345,12 @@ definitions:
         type: string
       knowledgeName:
         type: string
+      rerankInfo:
+        items:
+          $ref: '#/definitions/response.RerankInfo'
+        type: array
+      score:
+        type: number
       snippet:
         type: string
       title:
@@ -4236,6 +4435,10 @@ definitions:
       response:
         type: string
       searchList: {}
+      subConversationList:
+        items:
+          $ref: '#/definitions/response.SubConversation'
+        type: array
       sysPrompt:
         type: string
       updatedAt:
@@ -4447,6 +4650,8 @@ definitions:
       publishDate:
         description: 模型发布时间
         type: string
+      scopeType:
+        type: string
       tags:
         items:
           $ref: '#/definitions/mp_common.Tag'
@@ -4474,6 +4679,18 @@ definitions:
         type: boolean
       video_understanding:
         type: boolean
+    type: object
+  response.CreateKnowledgeExternalAPIResp:
+    properties:
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+    type: object
+  response.CreateKnowledgeExternalResp:
+    properties:
+      knowledgeId:
+        description: 知识库id
+        type: string
     type: object
   response.CreateKnowledgeQAPairResp:
     properties:
@@ -4681,6 +4898,28 @@ definitions:
         description: 0:删除失败，1：已完成
         type: integer
     type: object
+  response.DirectUploadFileInfo:
+    properties:
+      fileId:
+        description: 上传文件名
+        type: string
+      fileName:
+        description: 原始文件名
+        type: string
+      filePath:
+        description: minio文件的完整路径
+        type: string
+      fileSize:
+        description: 文件大小
+        type: integer
+    type: object
+  response.DirectUploadFilesResp:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/response.DirectUploadFileInfo'
+        type: array
+    type: object
   response.DocChildSegmentResp:
     properties:
       contentList:
@@ -4691,6 +4930,9 @@ definitions:
     type: object
   response.DocConfigResult:
     properties:
+      asrModelId:
+        description: asr模型id
+        type: string
       docAnalyzer:
         description: 文档解析类型
         items:
@@ -4708,12 +4950,18 @@ definitions:
         allOf:
         - $ref: '#/definitions/response.DocSegment'
         description: 分段信息配置
+      multimodalModelId:
+        description: 多模态模型id
+        type: string
       parserModelId:
         description: ocr模型id
         type: string
     type: object
   response.DocKnowledgeInfo:
     properties:
+      category:
+        description: '0: 知识库 1: 问答库 2: 多模态知识库'
+        type: integer
       description:
         type: string
       embeddingModel:
@@ -4884,6 +5132,27 @@ definitions:
         description: 上传时间
         type: string
     type: object
+  response.DocUploadLimit:
+    properties:
+      extList:
+        description: 文件后缀列表
+        items:
+          type: string
+        type: array
+      fileType:
+        description: 文件类型 图片：image 视频：video
+        type: string
+      maxSize:
+        description: 文件大小限制，单位MB
+        type: integer
+    type: object
+  response.DocUploadLimitResp:
+    properties:
+      uploadLimitList:
+        items:
+          $ref: '#/definitions/response.DocUploadLimit'
+        type: array
+    type: object
   response.DocUrl:
     properties:
       fileName:
@@ -4910,6 +5179,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/request.Avatar'
         description: 应用图标
+      category:
+        description: 智能体分类(1:单智能体,2:多智能体)
+        type: integer
       createdAt:
         description: 应用创建时间
         type: string
@@ -5031,6 +5303,70 @@ definitions:
       total:
         type: integer
     type: object
+  response.KnowledgeExternalAPIInfo:
+    properties:
+      apiKey:
+        description: 外部知识库API Key
+        type: string
+      baseUrl:
+        description: 外部知识库API endpoint
+        type: string
+      description:
+        description: 外部知识库API 描述
+        type: string
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      name:
+        description: 外部知识库API 名称
+        type: string
+    type: object
+  response.KnowledgeExternalAPIListResp:
+    properties:
+      externalApiList:
+        description: 外部知识库API列表
+        items:
+          $ref: '#/definitions/response.KnowledgeExternalAPIInfo'
+        type: array
+    type: object
+  response.KnowledgeExternalBriefInfo:
+    properties:
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      externalKnowledgeId:
+        description: 外部知识库id
+        type: string
+      externalKnowledgeName:
+        description: 外部知识库名称
+        type: string
+    type: object
+  response.KnowledgeExternalInfo:
+    properties:
+      externalApiId:
+        description: 外部知识库API id
+        type: string
+      externalApiName:
+        description: 外部知识库API名称
+        type: string
+      externalKnowledgeId:
+        description: 外部知识库id
+        type: string
+      externalKnowledgeName:
+        description: 外部知识库名称
+        type: string
+      externalSource:
+        description: 外部知识库来源
+        type: string
+    type: object
+  response.KnowledgeExternalListResp:
+    properties:
+      externalKnowledgeList:
+        description: 外部知识库列表
+        items:
+          $ref: '#/definitions/response.KnowledgeExternalBriefInfo'
+        type: array
+    type: object
   response.KnowledgeGraphEdge:
     properties:
       description:
@@ -5145,6 +5481,13 @@ definitions:
         allOf:
         - $ref: '#/definitions/response.EmbeddingModelInfo'
         description: embedding模型信息
+      external:
+        description: '0: 内部知识库 1：外部知识库'
+        type: integer
+      externalKnowledgeInfo:
+        allOf:
+        - $ref: '#/definitions/response.KnowledgeExternalInfo'
+        description: 外部知识库信息
       graphSwitch:
         description: 图谱开关
         type: integer
@@ -5406,14 +5749,17 @@ definitions:
         description: 解析错误信息，预留
         type: string
       fileSize:
-        description: 文件大小，预留
-        type: string
+        description: 文件大小，单位字节(Byte)
+        type: integer
       graphErrMsg:
         description: 图谱错误信息
         type: string
       graphStatus:
         description: 图谱状态 0:待处理，1.解析中，2.解析成功，3.解析失败 -1. 当文档状态为解析失败时，显示 -
         type: integer
+      isMultimodal:
+        description: 是否为多模态文件
+        type: boolean
       knowledgeId:
         description: 知识库id
         type: string
@@ -5923,6 +6269,8 @@ definitions:
       publishDate:
         description: 模型发布时间
         type: string
+      scopeType:
+        type: string
       tags:
         items:
           $ref: '#/definitions/mp_common.Tag'
@@ -6109,6 +6457,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/request.AppSafetyConfig'
         description: 敏感词表配置
+      visionConfig:
+        allOf:
+        - $ref: '#/definitions/request.VisionConfig'
+        description: 视觉开关
     required:
     - knowledgeBaseConfig
     - modelConfig
@@ -6117,6 +6469,20 @@ definitions:
     - qaRerankConfig
     - ragId
     - rerankConfig
+    type: object
+  response.RagUploadFile:
+    properties:
+      fileIndex:
+        type: integer
+      fileUrl:
+        type: string
+    type: object
+  response.RagUploadResponse:
+    properties:
+      fileList:
+        items:
+          $ref: '#/definitions/response.RagUploadFile'
+        type: array
     type: object
   response.RecommendConfig:
     properties:
@@ -6136,6 +6502,15 @@ definitions:
       recommendEnable:
         description: 追问配置开关
         type: boolean
+    type: object
+  response.RerankInfo:
+    properties:
+      fileUrl:
+        type: string
+      score:
+        type: number
+      type:
+        type: string
     type: object
   response.Response:
     properties:
@@ -6295,6 +6670,33 @@ definitions:
       value:
         description: 数量
         type: number
+    type: object
+  response.SubConversation:
+    properties:
+      conversationType:
+        description: subAgent：子智能体；agentTool：主智能体工具；subAgentTool：子智能体工具
+        type: string
+      id:
+        description: 事件id
+        type: string
+      name:
+        description: 事件名称
+        type: string
+      parentId:
+        description: 事件挂载id
+        type: string
+      profile:
+        description: 事件头像
+        type: string
+      response:
+        type: string
+      searchList: {}
+      status:
+        description: 1:成功，2：失败
+        type: integer
+      timeCost:
+        description: 耗时
+        type: string
     type: object
   response.ToolAction4Workflow:
     properties:
@@ -6709,6 +7111,91 @@ info:
   title: AI Agent Productivity Platform API
   version: v0.0.1
 paths:
+  /agent/skill/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取skill模板详情
+      parameters:
+      - description: skill模板ID
+        in: query
+        name: skillId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AgentSkillDetail'
+              type: object
+      security:
+      - JWT: []
+      summary: 获取skill模板详情
+      tags:
+      - guest
+  /agent/skill/download:
+    get:
+      consumes:
+      - application/json
+      description: 下载skill模板
+      parameters:
+      - description: skill模板ID
+        in: query
+        name: skillId
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 下载skill模板
+      tags:
+      - guest
+  /agent/skill/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取skill模板列表
+      parameters:
+      - description: skill模板名称
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.ListResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.AgentSkillDetail'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 获取skill模板列表
+      tags:
+      - guest
   /api/key:
     delete:
       consumes:
@@ -8110,6 +8597,75 @@ paths:
       summary: 智能体对话详情历史列表
       tags:
       - agent
+  /assistant/conversation/draft:
+    delete:
+      consumes:
+      - application/json
+      description: 删除草稿智能体对话
+      parameters:
+      - description: 智能体对话删除参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.ConversationDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除草稿智能体对话
+      tags:
+      - agent
+  /assistant/conversation/draft/detail:
+    get:
+      consumes:
+      - application/json
+      description: 草稿智能体对话详情历史列表
+      parameters:
+      - description: 智能体id
+        in: query
+        name: assistantId
+        required: true
+        type: string
+      - description: 页面编号
+        in: query
+        name: pageNo
+        required: true
+        type: integer
+      - description: 单页数量
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.ConversationDetailInfo'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 草稿智能体对话详情历史列表
+      tags:
+      - agent
   /assistant/conversation/list:
     get:
       consumes:
@@ -9466,6 +10022,39 @@ paths:
       summary: 文件上传
       tags:
       - common.file
+  /file/upload/direct:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 文件上传
+      parameters:
+      - description: 原始文件名
+        in: formData
+        name: fileName
+        required: true
+        type: string
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.DirectUploadFilesResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 文件上传
+      tags:
+      - common
   /knowledge:
     delete:
       consumes:
@@ -10075,6 +10664,33 @@ paths:
       summary: 更新文档配置
       tags:
       - knowledge.doc
+  /knowledge/doc/upload/limit:
+    get:
+      consumes:
+      - application/json
+      description: 获取可上传文件类型
+      parameters:
+      - in: query
+        name: knowledgeId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.DocUploadLimitResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 获取可上传文件类型
+      tags:
+      - knowledge.doc
   /knowledge/doc/url/analysis:
     post:
       consumes:
@@ -10161,6 +10777,206 @@ paths:
       security:
       - JWT: []
       summary: 获取知识库导出记录列表
+      tags:
+      - knowledge
+  /knowledge/external:
+    delete:
+      consumes:
+      - application/json
+      description: 删除外部知识库
+      parameters:
+      - description: 删除外部知识库请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.DeleteKnowledgeExternalReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除外部知识库
+      tags:
+      - knowledge
+    post:
+      consumes:
+      - application/json
+      description: 创建外部知识库
+      parameters:
+      - description: 创建外部知识库请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateKnowledgeExternalReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CreateKnowledgeExternalResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 创建外部知识库
+      tags:
+      - knowledge
+    put:
+      consumes:
+      - application/json
+      description: 编辑外部知识库
+      parameters:
+      - description: 编辑外部知识库请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateKnowledgeExternalReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 编辑外部知识库
+      tags:
+      - knowledge
+  /knowledge/external/api:
+    delete:
+      consumes:
+      - application/json
+      description: 删除外部知识库API
+      parameters:
+      - description: 删除外部知识库API请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.DeleteKnowledgeExternalAPIReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除外部知识库API
+      tags:
+      - knowledge
+    post:
+      consumes:
+      - application/json
+      description: 创建外部知识库API
+      parameters:
+      - description: 创建外部知识库API请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateKnowledgeExternalAPIReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CreateKnowledgeExternalAPIResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 创建外部知识库API
+      tags:
+      - knowledge
+    put:
+      consumes:
+      - application/json
+      description: 编辑外部知识库API
+      parameters:
+      - description: 修改外部知识库API请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateKnowledgeExternalAPIReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 编辑外部知识库API
+      tags:
+      - knowledge
+  /knowledge/external/api/select:
+    get:
+      consumes:
+      - application/json
+      description: 获取外部知识库API列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.KnowledgeExternalAPIListResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 获取外部知识库API列表
+      tags:
+      - knowledge
+  /knowledge/external/select:
+    get:
+      consumes:
+      - application/json
+      description: 获取外部知识库列表
+      parameters:
+      - description: 外部知识库API id
+        in: query
+        name: externalApiId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.KnowledgeExternalListResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 获取外部知识库列表
       tags:
       - knowledge
   /knowledge/graph:
@@ -12114,7 +12930,7 @@ paths:
               type: object
       security:
       - JWT: []
-      summary: asr语音识别模型列表展示
+      summary: 同步asr语音识别模型列表展示
       tags:
       - model
   /model/select/embedding:
@@ -13063,6 +13879,34 @@ paths:
       security:
       - JWT: []
       summary: 私域 草稿RAG 问答
+      tags:
+      - rag
+  /rag/upload:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: RAG上传文档请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.RagUploadParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.RagUploadResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: 文件直接上传到rag
       tags:
       - rag
   /role:

@@ -35,7 +35,4 @@ func registerGuest(apiV1 *gin.RouterGroup) {
 	mid.Sub("guest").Reg(apiV1, "/workflow/template/recommend", http.MethodGet, v1.GetWorkflowTemplateRecommend, "获取工作流模板推荐")
 	mid.Sub("guest").Reg(apiV1, "/workflow/template/download", http.MethodGet, v1.DownloadWorkflowTemplate, "下载工作流模板")
 
-	mid.Sub("guest").Reg(apiV1, "/prompt/template/list", http.MethodGet, v1.GetPromptTemplateList, "获取提示词模板列表")
-	mid.Sub("guest").Reg(apiV1, "/prompt/template/detail", http.MethodGet, v1.GetPromptTemplateDetail, "获取提示词模板详情")
-
 }

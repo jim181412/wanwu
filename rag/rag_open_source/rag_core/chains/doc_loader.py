@@ -13,7 +13,6 @@ from docx.oxml.text.paragraph import CT_P
 from docx.table import _Cell, Table
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
-import nltk
 from docx.oxml.ns import qn
 from PIL import Image
 import base64
@@ -25,7 +24,7 @@ import tiktoken
 from langchain_text_splitters import CharacterTextSplitter
 # from pymilvus.model.sparse.bm25.tokenizers import build_default_analyzer
 import tempfile
-
+from settings import IMAGE_MINIMUM_WIDTH, IMAGE_MINIMUM_HEIGHT
 # analyzer = build_default_analyzer(language="zh")
 
 tiktoken_cache_dir = "/opt/tiktoken_cache"
@@ -198,6 +197,11 @@ def docx_to_markdown(docx_path):
                         image_part = part.related_parts[image_rid]
                         image_bytes = image_part.blob
                         with Image.open(BytesIO(image_bytes)) as img:
+                            # 过滤掉小图标
+                            width, height = img.size
+                            if width < IMAGE_MINIMUM_WIDTH or height < IMAGE_MINIMUM_HEIGHT:  # 设置你认为的小图标大小阈值
+                                continue  # 跳过小图标
+
                             # 创建一个临时文件路径
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
                                 img_tmp_path = tmp_file.name
@@ -205,7 +209,7 @@ def docx_to_markdown(docx_path):
                                 img.save(img_tmp_path)
                                 # 上传临时文件
                                 minio_result = upload_local_file(img_tmp_path)
-                                if minio_result['code'] == 0:
+                                if minio_result['code'] == 0 and minio_result['download_link']:
                                     image_download_link = minio_result['download_link']
                                     print("====>image_download_link=%s" % image_download_link)
                                     img_url_str = f"![image]({image_download_link})"

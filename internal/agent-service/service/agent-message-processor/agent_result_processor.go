@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/response"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	safe_go_util "github.com/UnicomAI/wanwu/pkg/safe-go-util"
 	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
 	"github.com/cloudwego/eino/adk"
-	"io"
-	"strings"
 )
 
 //一次enio 智能体的返回包含多个event，一个event包含多个message, event 可能是流式的可能是同步的

@@ -52,12 +52,11 @@ service AssistantService {
   // --- conversation ---
   rpc ConversationCreate(ConversationCreateReq) returns (ConversationCreateResp) {}
   rpc ConversationDelete(ConversationDeleteReq) returns (google.protobuf.Empty) {}
+  rpc GetConversationIdByAssistantId(GetConversationIdByAssistantIdReq) returns (ConversationIdResp) {}
   rpc GetConversationList(GetConversationListReq) returns (GetConversationListResp) {}
   rpc GetConversationDetailList(GetConversationDetailListReq) returns (GetConversationDetailListResp) {}
   rpc AssistantConversionStream(AssistantConversionStreamReq) returns (stream AssistantConversionStreamResp) {}
-  rpc AssistantConversionStreamNew(AssistantConversionStreamReq) returns (stream AssistantConversionStreamResp) {}
   rpc MultiAssistantConversionStream(MultiAssistantConversionStreamReq) returns (stream AssistantConversionStreamResp) {}
-  rpc ConversationDeleteByAssistantId(ConversationDeleteByAssistantIdReq) returns (google.protobuf.Empty) {}
 
   // --- custom prompt ---
   rpc CustomPromptCreate(CustomPromptCreateReq) returns (CustomPromptIDResp) {}
@@ -232,6 +231,7 @@ message AppKnowledgeBase {
   string knowledgeBaseName = 2;
   int32 graphSwitch = 3; // 知识图谱开关
   MetaDataFilterParams metaDataFilterParams = 4;
+  int32 category = 5; // 知识库分类 0-知识库，1-问答库，2-多模态知识库
 }
 
 message MetaDataFilterParams {
@@ -453,7 +453,8 @@ message AssistantToolConfigReq {
 message ConversationCreateReq {
   string assistantId = 1;
   string prompt = 2;
-  Identity identity = 3;
+  string conversationType = 3;
+  Identity identity = 4;
 }
 
 message ConversationCreateResp {
@@ -465,11 +466,22 @@ message ConversationDeleteReq {
   Identity identity = 2;
 }
 
+message ConversationIdResp {
+  string conversationId = 1;
+}
+
+message GetConversationIdByAssistantIdReq{
+  string assistantId = 1;
+  string conversationType = 2;
+  Identity identity = 3;
+}
+
 message GetConversationListReq {
   string assistantId = 1;
-  int32 pageSize = 2;
-  int32 pageNo = 3;
-  Identity identity = 4;
+  string conversationType = 2;
+  int32 pageSize = 3;
+  int32 pageNo = 4;
+  Identity identity = 5;
 }
 
 message GetConversationListResp {
@@ -517,6 +529,19 @@ message ConversionDetailInfo{
   string fileName = 14;
   string fileFormat = 15;
   int64 fileSize = 16;
+  repeated SubConversation SubConversationList = 17;//子会话相关
+}
+
+message SubConversation {
+  string response = 1;
+  string searchList = 2;
+  string id = 3; //事件id
+  string name = 4; //事件名称
+  string profile = 5;//事件头像
+  string timeCost = 6;//耗时
+  int32 status = 7;//1:成功，2：失败
+  string conversationType = 8;//subAgent：子智能体；agentTool：主智能体工具；subAgentTool：子智能体工具
+  string parentId = 9;//需要挂载的id，为子智能体工具扩展
 }
 
 message RequestFile {
@@ -529,33 +554,26 @@ message AssistantConversionStreamReq {
   string assistantId = 1;
   string conversationId = 2;
   repeated ConversionStreamFile fileInfo = 3;
-  bool trial = 4;
-  string prompt = 5;
-  string systemPrompt = 6;
-  bool draft = 7;
-  Identity identity = 8;
+  string prompt = 4;
+  string systemPrompt = 5;
+  bool draft = 6;
+  Identity identity = 7;
 }
 
 message MultiAssistantConversionStreamReq {
   string assistantId = 1;
   string conversationId = 2;
   repeated ConversionStreamFile fileInfo = 3;
-  bool trial = 4;
-  string prompt = 5;
-  string systemPrompt = 6;
-  bool draft = 7;
-  Identity identity = 8;
+  string prompt = 4;
+  string systemPrompt = 5;
+  bool draft = 6;
+  Identity identity = 7;
 }
 
 message ConversionStreamFile{
   string fileName = 1;
   int64 fileSize = 2;
   string fileUrl = 3;
-}
-
-message ConversationDeleteByAssistantIdReq {
-  string assistantId = 1;
-  Identity identity = 2;
 }
 
 message AssistantWorkFlowDeleteByWorkflowIdReq {
@@ -643,6 +661,8 @@ message AgentBaseParams {
   string description = 1;      // 智能体描述
   string instruction = 2;      // 智能体系统提示词
   string name = 3;             // 智能体名称
+  string avatar = 4;              //智能体图像url
+  string agentId = 5;          //智能体唯一id
 }
 
 // 模型参数

@@ -24,4 +24,5 @@ type ModelInfo struct {
 	Tags        []mp_common.Tag         `json:"tags"`
 	Config      interface{}             `json:"config"`
 	Examples    *mp.ProviderModelConfig `json:"examples,omitempty"` // 仅用于swagger展示；模型对应供应商中的对应llm、embedding或rerank结构是config实际的参数
+	ScopeType   string                  `json:"scopeType"`
 }

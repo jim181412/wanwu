@@ -3,13 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/grpc-consumer/consumer/assistant"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-processor"
-	agent_preprocessor "github.com/UnicomAI/wanwu/internal/agent-service/service/agent-preprocessor"
-	local_agent "github.com/UnicomAI/wanwu/internal/agent-service/service/local-agent"
-	service_model "github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
+	agent_message_processor "github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-processor"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/prebuilt/supervisor"
@@ -17,9 +15,8 @@ import (
 )
 
 type MultiAgent struct {
-	MultiAgent      adk.Agent
-	AgentPreprocess *agent_preprocessor.AgentPreprocess
-	Req             *request.AgentChatParams
+	MultiAgent       adk.Agent
+	AgentChatContext *request.AgentChatContext
 }
 
 // MultiAgentChat 多智能体问答
@@ -38,23 +35,18 @@ func MultiAgentChat(ctx *gin.Context, req *request.MultiAgentChatParams) error {
 func CreateSupervisorMultiAgent(ctx *gin.Context, multiAgentChatParams *request.MultiAgentChatParams, multiAgentConfig *assistant_service.MultiAssistantDetailResp) (*MultiAgent, error) {
 	var multiAgentChatReq = BuildMultiAgentParams(multiAgentChatParams, multiAgentConfig)
 	agentChatParams := buildAgentChatParams(multiAgentChatReq)
-	chatInfo, err := buildAgentChatInfo(ctx, agentChatParams)
-	if err != nil {
-		log.Errorf("failed to build chat info: %v", err)
-		return nil, err
-	}
-	//构造智能体服务
-	localAgentService := local_agent.CreateLocalAgentService(ctx, agentChatParams, chatInfo)
-	//构造supervisor
-	sv, err := buildSupervisor(ctx, localAgentService, agentChatParams, chatInfo)
+	agentChatContext := &request.AgentChatContext{AgentChatReq: agentChatParams}
+	//构造supervisor,也是一个单智能体
+	sv, err := CreateSingleAgent(ctx, agentChatParams)
 	if err != nil {
 		return nil, err
 	}
 	//构造子智能体
-	multiSubAgent, err := buildMultiSubAgent(ctx, multiAgentChatReq)
+	multiSubAgent, subAgentMap, err := buildMultiSubAgent(ctx, multiAgentChatReq)
 	if err != nil {
 		return nil, err
 	}
+	agentChatContext.SubAgentMap = subAgentMap
 	//构造多智能体
 	agent, err := supervisor.New(ctx, &supervisor.Config{
 		Supervisor: sv,
@@ -64,25 +56,21 @@ func CreateSupervisorMultiAgent(ctx *gin.Context, multiAgentChatParams *request.
 		return nil, err
 	}
 	return &MultiAgent{
-		MultiAgent: agent,
-		AgentPreprocess: &agent_preprocessor.AgentPreprocess{
-			LocalAgentService: localAgentService,
-			GinContext:        ctx,
-			AgentChatInfo:     chatInfo,
-		},
-		Req: agentChatParams,
+		MultiAgent:       agent,
+		AgentChatContext: agentChatContext,
 	}, nil
 }
 
 func (s *MultiAgent) Chat(ctx *gin.Context) error {
 	//1.执行流式agent问答调用
+	req := s.AgentChatContext.AgentChatReq
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{
 		Agent:           s,
-		EnableStreaming: s.Req.Stream,
+		EnableStreaming: req.Stream,
 	})
-	iter := runner.Query(ctx, s.Req.Input)
+	iter := runner.Query(ctx, req.Input)
 	//2.处理结果
-	err := agent_message_processor.MultiAgentMessage(ctx, iter, &request.AgentChatContext{AgentChatReq: s.Req})
+	err := agent_message_processor.MultiAgentMessage(ctx, iter, s.AgentChatContext)
 	return err
 }
 
@@ -94,10 +82,8 @@ func (s *MultiAgent) Description(ctx context.Context) string {
 }
 
 func (s *MultiAgent) Run(ctx context.Context, input *adk.AgentInput, options ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
-	log.Infof("[%s] multi agent run", s.Req.AgentBaseParams.Name)
-	//参数预处理
-	agentInput := agent_preprocessor.AgentPreProcess(s.AgentPreprocess, input, s.Req)
-	return s.MultiAgent.Run(ctx, agentInput, options...)
+	log.Infof("[%s] multi agent run", s.AgentChatContext.AgentChatReq.AgentBaseParams.Name)
+	return s.MultiAgent.Run(ctx, input, options...)
 }
 
 // searchMultiAgentConfig 查询多智能体配置信息
@@ -143,8 +129,9 @@ func buildAgentChatParams(multiAgentChatReq *request.MultiAgentChatReq) *request
 	}
 }
 
-func buildMultiSubAgent(ctx *gin.Context, multiAgentChatReq *request.MultiAgentChatReq) ([]adk.Agent, error) {
+func buildMultiSubAgent(ctx *gin.Context, multiAgentChatReq *request.MultiAgentChatReq) ([]adk.Agent, map[string]*request.AgentConfig, error) {
 	var subAgents []adk.Agent
+	var subAgentMap = make(map[string]*request.AgentConfig)
 	for _, agentParams := range multiAgentChatReq.AgentList {
 		subAgent, err := CreateSingleAgent(ctx, &request.AgentChatParams{
 			AgentChatBaseParams: *agentParams,
@@ -152,27 +139,16 @@ func buildMultiSubAgent(ctx *gin.Context, multiAgentChatReq *request.MultiAgentC
 			UploadFile:          multiAgentChatReq.UploadFile,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		subAgents = append(subAgents, subAgent)
+		baseParams := agentParams.AgentBaseParams
+		subAgentMap[baseParams.Name] = &request.AgentConfig{
+			AgentId:          baseParams.AgentId,
+			AgentName:        baseParams.Name,
+			AgentAvatar:      baseParams.Avatar,
+			AgentChatContext: subAgent.ChatContext, //如果同一智能体不出现并发没问题，如果可能触发同一智能体并发调用，就会有bug
+		}
 	}
-	return subAgents, nil
-}
-
-func buildSupervisor(ctx *gin.Context, localAgentService local_agent.LocalAgentService, agentChatParams *request.AgentChatParams, chatInfo *service_model.AgentChatInfo) (adk.Agent, error) {
-	//创建模型
-	chatModel, err := localAgentService.CreateChatModel(ctx, agentChatParams, chatInfo)
-	if err != nil {
-		log.Errorf("failed to build chat model: %v", err)
-		return nil, err
-	}
-
-	agentBaseParams := agentChatParams.AgentBaseParams
-	return adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name:        agentBaseParams.Name,
-		Description: agentBaseParams.Description,
-		Instruction: agentBaseParams.Instruction,
-		Model:       chatModel,
-		Exit:        &adk.ExitTool{},
-	})
+	return subAgents, subAgentMap, nil
 }

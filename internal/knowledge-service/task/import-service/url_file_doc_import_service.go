@@ -10,6 +10,7 @@ import (
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/pkg/util"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/service"
 	"github.com/UnicomAI/wanwu/pkg/log"
+	wanwu_util "github.com/UnicomAI/wanwu/pkg/util"
 )
 
 type UrlFileDocImportService struct{}
@@ -64,7 +65,7 @@ func (f UrlFileDocImportService) AnalyzeDoc(ctx context.Context, importTask *mod
 			DocName:     docUrlREsp.FileName,
 			DocSize:     int64(docUrlREsp.FileSize),
 			DocUrl:      docUrlREsp.Url,
-			FilePathMd5: util.MD5(docUrlREsp.Url),
+			FilePathMd5: wanwu_util.MD5([]byte(docUrlREsp.Url)),
 		})
 	}
 	return retList, nil

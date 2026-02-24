@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	ConfigDir = "configs/microservice/bff-service/configs/workflow-template"
+	wtConfigDir = "configs/microservice/bff-service/configs/workflow-template"
 )
 
 type WorkflowTemplateConfig struct {
@@ -26,7 +26,7 @@ type WorkflowTemplateConfig struct {
 }
 
 func (wtf *WorkflowTemplateConfig) load() error {
-	schemaPath := filepath.Join(ConfigDir, wtf.SchemaPath)
+	schemaPath := filepath.Join(wtConfigDir, wtf.SchemaPath)
 	b, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("load workflowtemp %v schema path %v err: %v", wtf.TemplateId, schemaPath, err)

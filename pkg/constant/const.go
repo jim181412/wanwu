@@ -44,8 +44,16 @@ const (
 	MCPServerToolTypeOpenAPI     = "openapi" // 用户导入的openapi
 )
 
-// agent type
+// agent category
 const (
-	SingleAgent = 1
-	MultiAgent  = 2
+	AgentCategorySingle = 1
+	AgentCategoryMulti  = 2
+)
+
+// conversation type
+const (
+	ConversationTypeWebURL    = "openurl"   // openurl
+	ConversationTypePublished = "published" // 已发布
+	ConversationTypeDraft     = "draft"     // 草稿
+	ConversationTypeOpenAPI   = "openapi"   // openapi
 )

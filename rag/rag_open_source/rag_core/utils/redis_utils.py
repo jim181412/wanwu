@@ -2,14 +2,11 @@ import redis
 import json
 import os
 import hashlib
-from logging_config import setup_logging
-logger_name='rag_redis_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+import logging
+
 from settings import REDIS_ADDRESS, REDIS_PORT, REDIS_PASSWD, REDIS_DB
 
-
+logger = logging.getLogger(__name__)
 
 def get_redis_connection(redis_db=REDIS_DB):
     """

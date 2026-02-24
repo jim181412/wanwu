@@ -2,6 +2,7 @@ import os
 import json
 import time
 import copy
+import logging
 
 import requests
 import pandas as pd
@@ -12,16 +13,11 @@ from utils import es_utils
 from utils import redis_utils
 from utils import timing
 
-from logging_config import setup_logging
 from settings import GRAPH_SERVER_URL
-from model_manager import get_model_configure, LlmModelConfig
+from model_manager.model_config import get_model_configure, LlmModelConfig
 from utils.tools import generate_md5
 
-logger_name = 'rag_graph_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
-
+logger = logging.getLogger(__name__)
 
 def parse_excel_to_schema_json(file_path):
     """

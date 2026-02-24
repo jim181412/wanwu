@@ -223,6 +223,40 @@ func (c *client) SearchByFields(ctx context.Context, index string, fieldConditio
 	return documents, int64(totalValue), nil
 }
 
+// 根据指定字段条件删除数据
+func (c *client) DeleteByFields(ctx context.Context, index string, fieldConditions map[string]interface{}) error {
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": buildMustQuery(fieldConditions),
+			},
+		},
+	}
+
+	queryJSON, err := json.Marshal(query)
+	if err != nil {
+		return fmt.Errorf("序列化删除查询失败: %v", err)
+	}
+
+	res, err := c.cli.DeleteByQuery(
+		[]string{index},
+		strings.NewReader(string(queryJSON)),
+		c.cli.DeleteByQuery.WithContext(ctx),
+		c.cli.DeleteByQuery.WithRefresh(true),
+	)
+	if err != nil {
+		return fmt.Errorf("ES删除失败: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf("ES删除响应错误: %s", res.String())
+	}
+
+	log.Infof("成功删除ES数据，索引: %s", index)
+	return nil
+}
+
 // 创建索引模板
 func (c *client) CreateIndexTemplate(ctx context.Context, templateName string, templateBody string) error {
 	res, err := c.cli.Indices.PutIndexTemplate(

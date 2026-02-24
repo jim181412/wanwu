@@ -2,7 +2,7 @@ package model
 
 type AssistantSnapshot struct {
 	ID                      uint32 `gorm:"primarykey;column:id;comment:智能体快照Id"`
-	AssistantID             uint32 `gorm:"column:assistant_id;type:int;comment:智能体Id"`
+	AssistantID             uint32 `gorm:"column:assistant_id;type:int;index:idx_assistant_snapshot_assistant_id;comment:智能体Id"`
 	Version                 string `gorm:"column:version;type:varchar(64);comment:智能体版本"`
 	Category                int    `gorm:"column:category;type:tinyint(4);not null;default:1;comment:'1-单智能体，2-多智能体';" json:"category"`
 	SnapshotDesc            string `gorm:"column:desc;type:longtext;comment:智能体介绍"`

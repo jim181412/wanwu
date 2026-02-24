@@ -114,6 +114,12 @@ definitions:
     type: object
   request.AppKnowledgeBase:
     properties:
+      category:
+        description: 知识库类别 0-知识库，1-问答库，2-多模态知识库
+        type: integer
+      external:
+        description: 外部数据库标识
+        type: integer
       graphSwitch:
         description: 知识图谱开关
         type: integer
@@ -288,6 +294,15 @@ definitions:
     required:
     - prompt
     type: object
+  request.UrlQuestionRecommendRequest:
+    properties:
+      conversationId:
+        type: string
+      query:
+        type: string
+    required:
+    - query
+    type: object
   response.AppUrlConfig:
     properties:
       appUrlInfo:
@@ -362,7 +377,7 @@ definitions:
         - $ref: '#/definitions/request.Avatar'
         description: 图标
       category:
-        description: 1.单智能体 2.多智能体
+        description: 智能体分类 1.单智能体 2.多智能体
         type: integer
       createdAt:
         description: 创建时间
@@ -571,6 +586,10 @@ definitions:
       response:
         type: string
       searchList: {}
+      subConversationList:
+        items:
+          $ref: '#/definitions/response.SubConversation'
+        type: array
       sysPrompt:
         type: string
       updatedAt:
@@ -618,6 +637,33 @@ definitions:
         type: integer
       data: {}
       msg:
+        type: string
+    type: object
+  response.SubConversation:
+    properties:
+      conversationType:
+        description: subAgent：子智能体；agentTool：主智能体工具；subAgentTool：子智能体工具
+        type: string
+      id:
+        description: 事件id
+        type: string
+      name:
+        description: 事件名称
+        type: string
+      parentId:
+        description: 事件挂载id
+        type: string
+      profile:
+        description: 事件头像
+        type: string
+      response:
+        type: string
+      searchList: {}
+      status:
+        description: 1:成功，2：失败
+        type: integer
+      timeCost:
+        description: 耗时
         type: string
     type: object
   response.VisionConfig:
@@ -822,6 +868,40 @@ paths:
       security:
       - JWT: []
       summary: 获取智能体对话列表
+      tags:
+      - openurl
+  /agent/{suffix}/recommend:
+    post:
+      consumes:
+      - application/json
+      description: 智能体推荐问题
+      parameters:
+      - description: 临时唯一标识
+        in: header
+        name: X-Client-ID
+        required: true
+        type: string
+      - description: Url后缀
+        in: path
+        name: suffix
+        required: true
+        type: string
+      - description: 智能体推荐问题参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.UrlQuestionRecommendRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 智能体推荐问题
       tags:
       - openurl
   /agent/{suffix}/stream:

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"strconv"
 
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/UnicomAI/wanwu/pkg/util"
@@ -16,8 +17,9 @@ import (
 // --- openapi request ---
 
 type PdfParserReq struct {
-	Files    *multipart.FileHeader `form:"file" json:"file" validate:"required"`
-	FileName string                `form:"file_name" json:"file_name" validate:"required"`
+	Files        *multipart.FileHeader `form:"file" json:"file" validate:"required"`
+	FileName     string                `form:"file_name" json:"file_name" validate:"required"`
+	ExtractImage *int64                `form:"extract_image" json:"extract_image,omitempty"`
 }
 
 func (req *PdfParserReq) Check() error {
@@ -39,11 +41,13 @@ func (req *PdfParserReq) Data() (map[string]interface{}, error) {
 // --- openapi response ---
 
 type PdfParserResp struct {
-	Code    string `json:"code" validate:"required"`
-	Content string `json:"content" validate:"required"`
-	Message string `json:"message" validate:"required"`
-	Status  string `json:"status"`
-	TraceId string `json:"trace_id"`
+	Code           string `json:"code" validate:"required"`
+	Content        string `json:"content" validate:"required"`
+	Message        string `json:"message" validate:"required"`
+	Status         string `json:"status"`
+	TraceId        string `json:"trace_id"`
+	PrefixImageUrl string `json:"prefix_image_url"`
+	Version        string `json:"version"`
 }
 
 // --- request ---
@@ -123,6 +127,14 @@ func PdfParser(ctx *gin.Context, provider, apiKey, url string, req *PdfParserReq
 		return nil, fmt.Errorf("request %v %v pdfParser err: %v", url, provider, err)
 	}
 	defer file.Close()
+
+	formData := map[string]string{
+		"file_name": req.FileName,
+	}
+	if req.ExtractImage != nil {
+		formData["extract_image"] = strconv.FormatInt(*req.ExtractImage, 10)
+	}
+
 	request := resty.New().
 		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}). // 关闭证书校验
 		SetTimeout(0).                                             // 关闭请求超时
@@ -131,13 +143,12 @@ func PdfParser(ctx *gin.Context, provider, apiKey, url string, req *PdfParserReq
 		SetHeader("Content-Type", "multipart/form-data").
 		SetHeader("Accept", "application/json").
 		SetFileReader("file", req.Files.Filename, file).
-		SetMultipartFormData(map[string]string{
-			"file_name": req.FileName, // 👈 这里添加 file_name 字段
-		}).
+		SetMultipartFormData(formData). // 传入包含可选参数的表单数据
 		SetDoNotParseResponse(true)
 	for _, header := range headers {
 		request.SetHeader(header.Key, header.Value)
 	}
+
 	resp, err := request.Post(url)
 	if err != nil {
 		return nil, fmt.Errorf("request %v %v pdfParser err: %v", url, provider, err)

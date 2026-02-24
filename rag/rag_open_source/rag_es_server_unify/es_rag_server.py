@@ -2,6 +2,7 @@
 import json
 import time
 import copy
+import traceback
 from copy import deepcopy
 
 from log.logger import logger
@@ -18,6 +19,7 @@ import utils.mapping_util as es_mapping
 from utils import emb_util
 from utils.util import get_qa_index_name
 from utils.http_util import validate_request
+from model.model_manager import is_multimodal_model
 
 app = Flask(__name__)
 
@@ -25,6 +27,19 @@ def batch_list(lst: list, batch_size=32):
     """ 切分生成器 """
     for i in range(0, len(lst), batch_size):
         yield lst[i:i + batch_size]
+
+
+def log_exception_with_trace(e, msg=""):
+    stack_trace = traceback.format_exc()
+
+    log_content = (
+        f"【异常捕获】\n"
+        f"Context Info: {msg}\n"
+        f"Error Message: {str(e)}\n"
+        f"Stack Trace:\n{stack_trace}"
+    )
+
+    logger.warning(log_content)
 
 
 @app.route('/rag/kn/init_kb', methods=['POST'])
@@ -39,6 +54,7 @@ def init_kb(request_json=None):
     kb_id = request_json.get("kb_id")  # 必须字段
     embedding_model_id = request_json.get("embedding_model_id")  # 必须字段
     enable_knowledge_graph = request_json.get("enable_knowledge_graph", False)
+    is_multimodal = request_json.get("is_multimodal", False)
     userId_kb_names = []
     dense_dim = 1024
     try:
@@ -61,7 +77,7 @@ def init_kb(request_json=None):
         uk_data = [
             {"index_name": index_name, "userId": userId, "kb_name": kb_name,
              "creat_time": formatted_time, "kb_id": kb_id, "embedding_model_id": embedding_model_id,
-             "enable_graph": enable_knowledge_graph}
+             "enable_graph": enable_knowledge_graph, "is_multimodal": is_multimodal}
         ]
         kb_info_ops.bulk_add_uk_index_data(KBNAME_MAPPING_INDEX, uk_data)
         # ====== 新建完成，需要获取一下 kb_id,看看是否新建成功 ======
@@ -80,6 +96,7 @@ def init_kb(request_json=None):
         return jsonarr
 
     except Exception as e:
+        log_exception_with_trace(e, msg="init_kb")
         result = {
             "code": 1,
             "message": str(e)
@@ -129,6 +146,7 @@ def add_vector_data(request_json=None):
         cc_str = str(doc["content"]) + doc["file_name"] + str(doc["meta_data"]["chunk_current_num"])
         if cc_str not in cc_duplicate_list:
             doc.pop("embedding_content")  # 去掉不需要的字段
+            doc["content_type"] = "text"  # 主控表都是 text
             doc["status"] = True  # 初始化启停状态
             if "is_parent" in doc:
                 doc["is_parent"] = True
@@ -145,8 +163,18 @@ def add_vector_data(request_json=None):
         # ========= 将 embedding_content 编码好向量 =============
         content_vector_exist = False
         mapping_properties = {}
+        field_name = ""
         for batch_doc in batch_list(doc_list, batch_size=EMBEDDING_BATCH_SIZE):
-            res = emb_util.get_embs([x["embedding_content"] for x in batch_doc], embedding_model_id=embedding_model_id)
+            if is_multimodal_model(embedding_model_id): # 多模态模型则按多模态去编码
+                inputs = []
+                for x in batch_doc:
+                    if x.get("content_type", "text") == "image":
+                        inputs.append({"image": x["embedding_content"]})
+                    else:
+                        inputs.append({"text": x["embedding_content"]})
+                res = emb_util.get_multimodal_embs(inputs, embedding_model_id=embedding_model_id)
+            else:  # 非多模态知识库则按之前的文本去编码
+                res = emb_util.get_embs([x["embedding_content"] for x in batch_doc], embedding_model_id=embedding_model_id)
             dense_vector_dim = len(res["result"][0]["dense_vec"]) if res["result"] else 1024
             field_name = f"q_{dense_vector_dim}_content_vector"
             if dense_vector_dim == 1024:
@@ -161,27 +189,38 @@ def add_vector_data(request_json=None):
                 if len(batch_doc) != len(res["result"]):
                     raise RuntimeError(f"Error getting embeddings:{batch_doc}")
                 x[field_name] = res["result"][i]["dense_vec"]
-        # ========= 将 embedding_content 编码好向量 =============
-        es_result = es_ops.bulk_add_index_data(index_name, kb_id, doc_list)  # 注意 存储的时候传入 kb_id
-        logger.info(f"{es_result}")
-        es_cc_result = es_ops.bulk_add_cc_index_data(content_index_name, kb_id, cc_doc_list)  # 注意 存储的时候传入 kb_id
-        if es_result["success"] and es_cc_result["success"]:  # bulk_add_index_data 成功了则返回
-            result = {
-                "code": 0,
-                "message": "success"
-            }
-            jsonarr = json.dumps(result, ensure_ascii=False)
-            logger.info(f"当前用户:{userId},知识库:{kb_name},add的接口返回结果为：{jsonarr}")
-            return jsonarr
-        else:  # bulk_add_index_data 报错了则返回错误信息
-            result = {
-                "code": 1,
-                "message": es_result.get("error", "") + es_cc_result.get("error", "")
-            }
-            jsonarr = json.dumps(result, ensure_ascii=False)
-            logger.info(f"当前用户:{userId},知识库:{kb_name},add的接口返回结果为：{jsonarr}")
-            return jsonarr
+
+        # 过滤掉向量字段值为 None 的数据
+        doc_list = [
+            doc for doc in doc_list
+            if field_name in doc and doc[field_name] is not None
+        ]
+        # 检查过滤后是否还有数据需要写入
+        if not doc_list:
+            logger.warning(f"kb_id: {kb_id} 过滤后没有有效的向量数据可供存储")
+        else:
+            # ========= 将 embedding_content 编码好向量 =============
+            es_result = es_ops.bulk_add_index_data(index_name, kb_id, doc_list)  # 注意 存储的时候传入 kb_id
+            logger.info(f"{es_result}")
+            es_cc_result = es_ops.bulk_add_cc_index_data(content_index_name, kb_id, cc_doc_list)  # 注意 存储的时候传入 kb_id
+            if es_result["success"] and es_cc_result["success"]:  # bulk_add_index_data 成功了则返回
+                result = {
+                    "code": 0,
+                    "message": "success"
+                }
+                jsonarr = json.dumps(result, ensure_ascii=False)
+                logger.info(f"当前用户:{userId},知识库:{kb_name},add的接口返回结果为：{jsonarr}")
+                return jsonarr
+            else:  # bulk_add_index_data 报错了则返回错误信息
+                result = {
+                    "code": 1,
+                    "message": es_result.get("error", "") + es_cc_result.get("error", "")
+                }
+                jsonarr = json.dumps(result, ensure_ascii=False)
+                logger.info(f"当前用户:{userId},知识库:{kb_name},add的接口返回结果为：{jsonarr}")
+                return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="add_vector_data")
         result = {
             "code": 2,
             "message": str(e)
@@ -195,7 +234,7 @@ def add_vector_data(request_json=None):
 @app.route('/rag/kn/get_kb_info', methods=['POST'])
 @validate_request
 def get_kb_info(request_json=None):
-    """ 查询知识库是否开启知识图谱"""
+    """ 查询知识库详情"""
     logger.info("-----------------------启动知识库info查询-------------------\n")
     userId = request_json.get("userId")
     kb_name = request_json.get("kb_name")
@@ -215,12 +254,13 @@ def get_kb_info(request_json=None):
         logger.info(f"当前用户:{userId},知识库info查询接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, "get_kb_info")
         result = {
             "code": 1,
             "message": str(e)
         }
         jsonarr = json.dumps(result, ensure_ascii=False)
-        logger.info(f"当前用户:{userId},知识库是否开启知识图谱查询的接口返回结果为：{jsonarr}")
+        logger.info(f"当前用户:{userId},知识库详情查询的接口返回结果为：{jsonarr}")
         return jsonarr
 
 @app.route('/rag/kn/list_kb_names', methods=['POST'])
@@ -249,6 +289,7 @@ def list_kb_names(request_json=None):
         return jsonarr
 
     except Exception as e:
+        log_exception_with_trace(e, "list_kb_names")
         result = {
             "code": 1,
             "message": str(e)
@@ -294,7 +335,7 @@ def list_file_names(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询文件名称时发生错误：{str(e)}")
+        log_exception_with_trace(e, msg="查询文件名称时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -340,7 +381,7 @@ def list_file_names_after_filtering(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"过滤查询文件名称时发生错误：{str(e)}")
+        log_exception_with_trace(e, msg="过滤查询文件名称时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -375,7 +416,7 @@ def list_file_download_links(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询文件下载链接时发生错误：{str(e)}")
+        log_exception_with_trace(e, msg="查询文件下载链接时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -399,6 +440,8 @@ def es_knn_search(request_json=None):
     min_score = request_json.get("threshold", 0)
     filter_file_name_list = request_json.get("filter_file_name_list", [])
     metadata_filtering_conditions = request_json.get("metadata_filtering_conditions", [])
+    enable_vision = request_json.get("enable_vision", [])
+    attachment_files = request_json.get("attachment_files", [])
     kb_id_2_kb_name = {}
     emb_id2kb_names = {}
     logger.info(f"用户:{index_name},请求查询的kb_names为:{display_kb_names}")
@@ -460,7 +503,9 @@ def es_knn_search(request_json=None):
             logger.info(f"用户:{index_name},请求查询的kb_names为:{kb_names},embedding_model_id:{embedding_model_id}")
             result_dict = es_ops.search_data_knn_recall(index_name, kb_names, query, top_k, min_score,
                                                         filter_file_name_list=filter_file_name_list,
-                                                        embedding_model_id=embedding_model_id)
+                                                        embedding_model_id=embedding_model_id,
+                                                        enable_vision=enable_vision,
+                                                        attachment_files=attachment_files)
             search_list.extend(result_dict["search_list"])
             scores.extend(result_dict["scores"])
 
@@ -489,7 +534,7 @@ def es_knn_search(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询知识库时发生错误：{e}")
+        log_exception_with_trace(e, msg="查询知识库时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -604,6 +649,7 @@ def del_files(request_json=None):
         return jsonarr
 
     except Exception as e:
+        log_exception_with_trace(e)
         logger.info(f"知识库{kb_name},{file_names},在文件删除时发生错误：{e}")
         result = {
             "code": 1,
@@ -651,7 +697,7 @@ def get_content_list(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},file_name:{file_name},page_size:{page_size},search_after:{search_after},知识片段分页查询的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"获取主控表中知识片段的分页展示时发生错误：{e}")
+        log_exception_with_trace(e, msg="获取主控表中知识片段的分页展示时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -687,7 +733,7 @@ def get_child_content_list(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},file_name:{file_name}, chunk_id:{chunk_id},子分段查询的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"获取子分段时发生错误：{e}")
+        log_exception_with_trace(e, msg="获取子分段时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -720,7 +766,12 @@ def update_child_chunk(request_json=None):
         logger.info(f"用户:{userId},display_kb_name: {display_kb_name},请求的kb_name为:{kb_name}, chunk_id: {chunk_id}, "
                     f"chunk_current_num: {chunk_current_num}, child_chunk: {child_chunk}")
 
-        res = emb_util.get_embs([child_content], embedding_model_id=embedding_model_id)
+        if is_multimodal_model(embedding_model_id):  # 多模态模型则按多模态去编码
+            inputs = [{"text": child_content}]
+            res = emb_util.get_multimodal_embs(inputs, embedding_model_id=embedding_model_id)
+        else:  # 非多模态知识库则按之前的文本去编码
+            res = emb_util.get_embs([child_content], embedding_model_id=embedding_model_id)
+
         dense_vector_dim = len(res["result"][0]["dense_vec"]) if res["result"] else 1024
         field_name = f"q_{dense_vector_dim}_content_vector"
         if dense_vector_dim == 1024:
@@ -752,7 +803,7 @@ def update_child_chunk(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},更新知识库元数据的接口返回结果为：{json_arr}")
         return json_arr
     except Exception as e:
-        logger.info(f"更新知识库元数据时发生错误：{e}")
+        log_exception_with_trace(e, "更新知识库元数据时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -784,7 +835,7 @@ def update_file_metas(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},更新知识库元数据的接口返回结果为：{json_arr}")
         return json_arr
     except Exception as e:
-        logger.info(f"更新知识库元数据时发生错误：{e}")
+        log_exception_with_trace(e, msg="更新知识库元数据时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -938,7 +989,7 @@ def update_chunk_labels(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},file_name:{file_name},根据fileName和chunk_id更新知识库chunk 标签的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"根据fileName和chunk_id更新知识库chunk 标签时发生错误：{e}")
+        log_exception_with_trace(e, msg="根据fileName和chunk_id更新知识库chunk 标签时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -984,7 +1035,7 @@ def get_content_by_ids(request_json=None):
             f"当前用户:{userId},知识库:{kb_id},content_ids:{content_ids}, 根据content_ids获取片段信息的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"根据content_ids获取分段信息时发生错误：{e}")
+        log_exception_with_trace(e, "根据content_ids获取分段信息时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1019,7 +1070,7 @@ def update_content_status(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},file_name:{file_name},content_id:{content_id},search_after:{status},on_off_switch:{on_off_switch}根据content_id更新知识库文件片段状态的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"根据content_id更新知识库文件片段状态时发生错误：{e}")
+        log_exception_with_trace(e, msg="根据content_id更新知识库文件片段状态时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1050,7 +1101,7 @@ def get_content_status(request_json=None):
             f"当前用户:{userId},知识库:{kb_name},content_id_list:{content_id_list},获取文本分块状态用于进行检索后过滤的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"获取文本分块状态用于进行检索后过滤时发生错误：{e}")
+        log_exception_with_trace(e, msg="获取文本分块状态用于进行检索后过滤时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1077,7 +1128,7 @@ def get_kb_id(request_json=None):
         logger.info(f"当前用户:{userId},知识库:{kb_name},获取知识库映射的 kb_id接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"获取知识库映射的 kb_id接口发生错误：{e}")
+        log_exception_with_trace(e, msg="获取知识库映射的 kb_id接口发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1103,7 +1154,7 @@ def update_uk_kb_name(request_json=None):
         logger.info(f"当前用户:{userId},{old_kb_name},{new_kb_name},更新uk映射表知识库名接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"更新uk映射表知识库名接口发生错误：{e}")
+        log_exception_with_trace(e, msg="更新uk映射表知识库名接口发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1139,6 +1190,7 @@ def snippet_bulk_add(request_json=None):
         logger.info("bulk_add response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="snippet_bulk_add 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("bulk_add response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1169,7 +1221,7 @@ def add_file(request_json=None):
             f"当前用户:{user_id},知识库:{kb_name},file_name:{file_name},新增文件返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"新增文件时发生错误：{e}")
+        log_exception_with_trace(e, "新增文件时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1210,7 +1262,7 @@ def allocate_chunks(request_json=None):
             f"当前用户:{user_id},知识库:{kb_name},file_name:{file_name},新增分段分配chunk的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"新增分段分配chunk时发生错误：{e}")
+        log_exception_with_trace(e, msg="新增分段分配chunk时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1244,7 +1296,7 @@ def allocate_child_chunks(request_json=None):
             f"当前用户:{user_id},知识库:{kb_name},file_name:{file_name},新增子分段分配chunk的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"新增子分段分配chunk时发生错误：{e}")
+        log_exception_with_trace(e, msg="新增子分段分配chunk时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1309,6 +1361,7 @@ def snippet_search(request_json=None):
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="snippet search 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1367,6 +1420,7 @@ def keyword_search(request_json=None):
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="keyword search 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1418,13 +1472,16 @@ def snippet_rescore(request_json=None):
                 item["user_id"] = user_id
 
             search_list.extend(temp_search_list)
-            bm25_scores = result["scores"]
+            bm25_scores.extend(result["scores"])
             contents = [item["snippet"] for item in search_list]
             cosine_scores.extend(emb_util.calculate_cosine(query, contents, embedding_model_id))
-            logger.info(f"rescore bm25_scores: {bm25_scores}, cosine_scores: {cosine_scores}")
+            logger.info(f"uer_id: {user_id}, rescore bm25_scores: {bm25_scores}, cosine_scores: {cosine_scores}")
 
         bm25_normalized = normalize_to_01(bm25_scores)
         cosine_normalized = normalize_to_01(cosine_scores)
+
+        if len(bm25_normalized) != len(cosine_normalized):
+            raise ValueError("BM25 scores and Cosine scores length mismatch")
 
         final_search_list = []
         for item, text_score, vector_score in zip(search_list, bm25_normalized, cosine_normalized):
@@ -1441,6 +1498,7 @@ def snippet_rescore(request_json=None):
         logger.info("rescore response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="snippet rescore 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("rescore response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1472,6 +1530,7 @@ def search_title_list(request_json=None):
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="search_text_title_list 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("search response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1497,6 +1556,7 @@ def snippet_fetch_all(request_json=None):
         logger.info("fetch_all response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="snippet fetch_all 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("fetch_all response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1524,6 +1584,7 @@ def snippet_delete_doc_by_kbname_title(request_json=None):
         logger.info("delete_doc_by_title response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="delete_doc_by_title 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("delete_doc_by_title response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1550,6 +1611,7 @@ def snippet_delete_index_kb_name(request_json=None):
         logger.info("delete_index response: %s", response)
         return Response(response, mimetype='application/json', status=200)
     except Exception as e:
+        log_exception_with_trace(e, msg="snippet_delete_index_kb_name 发生错误")
         response = json.dumps({'code': 400, 'msg': str(e), 'result': None}, ensure_ascii=False)
         logger.info("delete_index response: %s", response)
         return Response(response, mimetype='application/json', status=400)
@@ -1584,7 +1646,10 @@ def add_community_reports_data(request_json=None):
 
         # ========= 将 embedding_content 编码好向量 =============
         for batch_doc in batch_list(doc_list, batch_size=EMBEDDING_BATCH_SIZE):
-            res = emb_util.get_embs([x["embedding_content"] for x in batch_doc], embedding_model_id=embedding_model_id)
+            if is_multimodal_model(embedding_model_id):  # 多模态模型则按多模态去编码
+                res = emb_util.get_multimodal_embs([{"text": x["embedding_content"]} for x in batch_doc], embedding_model_id=embedding_model_id)
+            else:  # 非多模态知识库则按之前的文本去编码
+                res = emb_util.get_embs([x["embedding_content"] for x in batch_doc], embedding_model_id=embedding_model_id)
             dense_vector_dim = len(res["result"][0]["dense_vec"]) if res["result"] else 1024
             field_name = f"q_{dense_vector_dim}_content_vector"
 
@@ -1602,6 +1667,7 @@ def add_community_reports_data(request_json=None):
         logger.info(f"当前用户:{user_id},知识库:{kb_name},add_community_reports的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="add_community_reports 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1659,6 +1725,7 @@ def del_community_reports(request_json=None):
             f"当前用户:{user_id},知识库:{kb_name},community reports删除的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="del_community_reports 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1732,7 +1799,7 @@ def search_community_reports(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询知识库时发生错误：{e}")
+        log_exception_with_trace(e, msg="查询知识库时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1791,6 +1858,7 @@ def init_qa_base(request_json=None):
         logger.info(f"当前用户:{user_id},问答库:{qa_base_name},ini知识库的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="ini_qa_base 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1834,6 +1902,7 @@ def del_qa_base(request_json=None):
         return jsonarr
 
     except Exception as e:
+        log_exception_with_trace(e, msg="del_qa_base 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1863,7 +1932,10 @@ def add_qa_data(request_json=None):
 
         # ========= 将 embedding_content 编码好向量 =============
         for batch_doc in batch_list(qa_list, batch_size=EMBEDDING_BATCH_SIZE):
-            res = emb_util.get_embs([x["question"] for x in batch_doc], embedding_model_id=embedding_model_id)
+            if is_multimodal_model(embedding_model_id):  # 多模态模型则按多模态去编码
+                res = emb_util.get_multimodal_embs([{"text": x["question"]} for x in batch_doc], embedding_model_id=embedding_model_id)
+            else:  # 非多模态知识库则按之前的文本去编码
+                res = emb_util.get_embs([x["question"] for x in batch_doc], embedding_model_id=embedding_model_id)
             dense_vector_dim = len(res["result"][0]["dense_vec"]) if res["result"] else 1024
             field_name = f"q_{dense_vector_dim}_content_vector"
 
@@ -1884,6 +1956,7 @@ def add_qa_data(request_json=None):
         logger.info(f"当前用户:{user_id},问答库:{qa_base_name},add的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="add_qa_data 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -1924,6 +1997,7 @@ def batch_delete_qas(request_json=None):
         logger.info(f"当前用户:{user_id},问答库:{qa_base_name}, 问答对删除的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="batch_delete_qas 发生错误")
         result = {
             "code": 1,
             "message": str(e),
@@ -1954,7 +2028,10 @@ def update_qa(request_json=None):
 
         if "question" in update_data:
             embedding_model_id = kb_info_ops.get_uk_kb_emb_model_id(user_id, qa_base_name)
-            res = emb_util.get_embs([update_data["question"]], embedding_model_id=embedding_model_id)
+            if is_multimodal_model(embedding_model_id):  # 多模态模型则按多模态去编码
+                res = emb_util.get_multimodal_embs([{"text": update_data["question"]}], embedding_model_id=embedding_model_id)
+            else:  # 非多模态知识库则按之前的文本去编码
+                res = emb_util.get_embs([update_data["question"]], embedding_model_id=embedding_model_id)
             if len(res["result"]) != 1:
                 raise RuntimeError(f"Error getting embeddings:{update_data}")
             dense_vector_dim = len(res["result"][0]["dense_vec"]) if res["result"] else 1024
@@ -1974,6 +2051,7 @@ def update_qa(request_json=None):
             f"当前用户:{user_id},问答库:{qa_base_name},qa_pair_id:{qa_pair_id}, 更新的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="update_qa 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -2010,7 +2088,7 @@ def get_qa_list(request_json=None):
             f"当前用户:{user_id},问答库:{qa_base_name},page_size:{page_size},search_after:{search_after},分页查询的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
-        logger.info(f"获取问答对的分页展示时发生错误：{e}")
+        log_exception_with_trace(e, msg="获取问答对的分页展示时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -2056,6 +2134,7 @@ def update_qa_metas(request_json=None):
             f"当前用户:{user_id},问答库:{qa_base_name}, 更新元数据的接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="update_qa_metas 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -2125,6 +2204,7 @@ def qa_rescore(request_json=None):
         logger.info(f"qa_rescore接口返回结果为：{jsonarr}")
         return jsonarr
     except Exception as e:
+        log_exception_with_trace(e, msg="qa_rescore 发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -2204,7 +2284,7 @@ def vector_search(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询问答库时发生错误：{e}")
+        log_exception_with_trace(e,msg="查询问答库时发生错误")
         result = {
             "code": 1,
             "message": str(e)
@@ -2263,7 +2343,7 @@ def text_search(request_json=None):
         return jsonarr
 
     except Exception as e:
-        logger.info(f"查询问答库时发生错误：{e}")
+        log_exception_with_trace(e, msg="查询问答库时发生错误")
         result = {
             "code": 1,
             "message": str(e)

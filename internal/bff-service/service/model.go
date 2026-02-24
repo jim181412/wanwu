@@ -5,6 +5,7 @@ import (
 
 	err_code "github.com/UnicomAI/wanwu/api/proto/err-code"
 	model_service "github.com/UnicomAI/wanwu/api/proto/model-service"
+	"github.com/UnicomAI/wanwu/internal/bff-service/config"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
@@ -82,6 +83,7 @@ func ListModels(ctx *gin.Context, userId, orgId string, req *request.ListModelsR
 		IsActive:    req.IsActive,
 		UserId:      userId,
 		OrgId:       orgId,
+		ScopeType:   req.ScopeType,
 	})
 	if err != nil {
 		return nil, err
@@ -128,6 +130,51 @@ func ListTypeModels(ctx *gin.Context, userId, orgId string, req *request.ListTyp
 	}, nil
 }
 
+func CheckModelUserPermission(ctx *gin.Context, userId, orgId string, modelIds []string) ([]string, error) {
+	resp, err := model.GetModelByIds(ctx.Request.Context(), &model_service.GetModelByIdsReq{ModelIds: modelIds})
+	if err != nil {
+		return nil, err
+	}
+	// 创建模型ID到模型信息的映射
+	modelMap := make(map[string]*model_service.ModelInfo)
+	for _, model := range resp.Models {
+		modelMap[model.ModelId] = model
+	}
+	// 校验所有传入的modelIds，收集有权限的模型ID
+	var authorizedModelIds []string
+	var unauthorizedModelId string
+	for _, modelId := range modelIds {
+		model, exists := modelMap[modelId]
+		if !exists {
+			// 模型不存在
+			unauthorizedModelId = modelId
+			continue
+		}
+		// 校验模型权限
+		var hasPermission bool
+		switch model.GetScopeType() {
+		case config.ModelScopeTypePrivate: // 私有
+			hasPermission = (model.UserId == userId) && (model.OrgId == orgId)
+		case config.ModelScopeTypePublic: // 公开
+			hasPermission = true // 公开模型，任何人都可以访问
+		case config.ModelScopeTypeOrg: // 指定组织可见
+			hasPermission = (model.OrgId == orgId)
+		default:
+			hasPermission = (model.UserId == userId) && (model.OrgId == orgId)
+		}
+		if hasPermission {
+			authorizedModelIds = append(authorizedModelIds, modelId)
+		} else {
+			unauthorizedModelId = modelId
+		}
+	}
+
+	if unauthorizedModelId != "" {
+		return authorizedModelIds, grpc_util.ErrorStatusWithKey(err_code.Code_BFFGeneral, "bff_model_perm", unauthorizedModelId)
+	}
+	return authorizedModelIds, nil
+}
+
 // --- internal ---
 
 func getModelIdByUuid(ctx *gin.Context, uuid string) (string, error) {
@@ -139,6 +186,11 @@ func getModelIdByUuid(ctx *gin.Context, uuid string) (string, error) {
 }
 
 func parseImportAndUpdateClientReq(userId, orgId string, req *request.ImportOrUpdateModelRequest) (*model_service.ModelInfo, error) {
+	if req.ScopeType == config.ModelScopeTypePublic {
+		if userId != config.SystemAdminUserID || orgId != config.TopOrgID {
+			return nil, grpc_util.ErrorStatus(err_code.Code_BFFInvalidArg, "Only system administrators can make the model public")
+		}
+	}
 	clientReq := &model_service.ModelInfo{
 		Provider:      req.Provider,
 		ModelId:       req.ModelId,
@@ -151,6 +203,7 @@ func parseImportAndUpdateClientReq(userId, orgId string, req *request.ImportOrUp
 		OrgId:         orgId,
 		IsActive:      true,
 		ModelDesc:     req.ModelDesc,
+		ScopeType:     req.ScopeType,
 	}
 	configStr, err := req.ConfigString()
 	if err != nil {
@@ -198,6 +251,7 @@ func toModelInfo(ctx *gin.Context, modelInfo *model_service.ModelInfo) (*respons
 		ModelDesc:   modelInfo.ModelDesc,
 		Config:      modelConfig,
 		Tags:        tags,
+		ScopeType:   modelInfo.ScopeType,
 	}
 	if res.DisplayName == "" {
 		res.DisplayName = res.Model

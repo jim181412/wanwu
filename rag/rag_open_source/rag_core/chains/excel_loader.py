@@ -13,21 +13,9 @@ from openpyxl import load_workbook
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string, get_column_letter
 import sys
 import os
-import nltk
-current_file_path = os.path.abspath(__file__)
-# 获取当前文件所在的目录
-current_dir = os.path.dirname(current_file_path)
-# 添加项目根目录到 sys.path
-# sys.path.append(root_dir)
-# 拼接nltk_data文件夹的路径
-nltk_data_path = os.path.join(current_dir, 'nltk_data')
-nltk.data.path.append(nltk_data_path)
-# from utils import minio_utils
-from logging_config import setup_logging
-logger_name = 'rag_excel_loader'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+
+logger = logging.getLogger(__name__)
+
 ##
 # def trans_excel(filepath,sheet_name="故障清单"):
 #     data = pd.read_excel(filepath,sheet_name=sheet_name)

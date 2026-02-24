@@ -116,10 +116,13 @@
 {"code":110000,"key":"bff_file_http_get","langs":{"zh":"文件下载错误: %v"}}
 {"code":110000,"key":"bff_file_read","langs":{"zh":"文件读取失败: %v"}}
 {"code":110000,"key":"bff_workflow_upload_file","langs":{"zh":"工作流上传文件错误: %v"}}
+{"code":0,"key":"------ model ------","langs":{}}
+{"code":110000,"key":"bff_model_perm","langs":{"zh":"模型(%v)权限校验失败，请更换模型重试"}}
+{"code":110011,"key":"","langs":{"zh":"模型(%v)已禁用"}}
 {"code":0,"key":"------ custom ------","langs":{}}
-{"code":0,"key":"bff_custom_home_title","langs":{"en":"Yuanjing Wanwu Intelligent Body Development Platform","zh":"元景万悟智能体开发平台"}}
+{"code":0,"key":"bff_custom_home_title","langs":{"en":"Yuanjing Wanwu Intelligent Body Platform","zh":"元景万悟智能体平台"}}
 {"code":0,"key":"bff_custom_tab_title","langs":{"en":"Yuanjing Wanwu","zh":"元景万悟"}}
-{"code":0,"key":"bff_custom_login_welcome_text","langs":{"en":"Hi! Welcome to Yuanjing Wanwu Intelligent Body Development Platform","zh":"嗨！欢迎来到元景万悟智能体开发平台"}}
+{"code":0,"key":"bff_custom_login_welcome_text","langs":{"en":"Hi! Welcome to Yuanjing Wanwu Intelligent Body Platform","zh":"嗨！欢迎来到元景万悟智能体平台"}}
 {"code":0,"key":"bff_custom_about_copyright","langs":{"zh":"© 大模型开源平台"}}
 {"code":0,"key":"bff_custom_login_platform_desc","langs":{}}
 {"code":120002,"key":"iam_captcha_refresh","langs":{"en":"refresh but key or code empty","zh":"刷新验证码时 key 或 code 为空"}}
@@ -195,7 +198,6 @@
 {"code":120041,"key":"oauth_app_list","langs":{"zh":"获取oauth应用列表错误: %v"}}
 {"code":120041,"key":"oauth_app_status_update","langs":{"zh":"更改oauth应用(%v)状态错误: %v"}}
 {"code":120041,"key":"oauth_app_get","langs":{"zh":"获取oauth应用(%v)错误: %v"}}
-{"code":0,"key":"","langs":{}}
 {"code":250001,"key":"model_create_err","langs":{"zh":"模型导入异常:%v"}}
 {"code":250001,"key":"model_validate_err","langs":{"zh":"未找到目前模型的协议类型"}}
 {"code":250002,"key":"model_get_by_id_err","langs":{"zh":"根据id获取模型信息异常:%v"}}
@@ -235,7 +237,7 @@
 {"code":141007,"key":"","langs":{"zh":"正在解析文档，不可删除"}}
 {"code":141008,"key":"","langs":{"zh":"该名称已存在，请重新命名"}}
 {"code":141009,"key":"","langs":{"zh":"查询列表失败，请稍后重试"}}
-{"code":141010,"key":"","langs":{"zh":"命中测试失败，请稍后重试: %v"}}
+{"code":141010,"key":"","langs":{"zh":"命中测试失败，请稍后重试：%v"}}
 {"code":141011,"key":"","langs":{"zh":"查询知识图谱失败，请稍后重试"}}
 {"code":142001,"key":"","langs":{"zh":"文档正在解析文档，不可删除"}}
 {"code":142002,"key":"","langs":{"zh":"文档删除失败，请稍后重试"}}
@@ -421,6 +423,7 @@
 {"code":160006,"key":"assistant_tool_update","langs":{"zh":"更新tool错误: %v"}}
 {"code":160006,"key":"assistant_tool_config_update","langs":{"zh":"更新tool错误: %v"}}
 {"code":160007,"key":"assistant_custom_prompt_create","langs":{"zh":"创建自定义提示词错误: %v"}}
+{"code":160007,"key":"assistant_custom_prompt_exist","langs":{"zh":"已存在同名提示词，请更改名字后重试"}}
 {"code":160007,"key":"assistant_custom_prompt_delete","langs":{"zh":"删除自定义提示词错误: %v"}}
 {"code":160007,"key":"assistant_custom_prompt_get_err","langs":{"zh":"获取自定义提示词错误: %v"}}
 {"code":160007,"key":"assistant_custom_prompt_update_err","langs":{"zh":"更新自定义提示词错误: %v"}}

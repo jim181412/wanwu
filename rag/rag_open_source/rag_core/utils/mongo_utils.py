@@ -11,11 +11,6 @@ import os
 import sys
 import datetime
 from pymongo import MongoClient
-from logging_config import setup_logging
-logger_name='rag_mongo_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
 from settings import MONGO_URL
 
 

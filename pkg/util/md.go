@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -28,4 +29,8 @@ func Md2html(markdown []byte) (string, error) {
 	}
 	// 输出 HTML
 	return buf.String(), nil
+}
+
+func MdImageUrl(fileName, fileUrl string) string {
+	return fmt.Sprintf("![%s](%s)", fileName, fileUrl)
 }

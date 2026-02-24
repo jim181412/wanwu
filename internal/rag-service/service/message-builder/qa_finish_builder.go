@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	rag_manage_service "github.com/UnicomAI/wanwu/internal/rag-service/service/rag-manage-service"
+	"github.com/UnicomAI/wanwu/pkg/log"
 )
 
 type QAFinishBuilder struct {
@@ -20,14 +21,16 @@ func (QAFinishBuilder) Build(ctx context.Context, ragContext *RagContext) *RagEv
 	}
 	params, err := rag_manage_service.BuildQaHitParams(ragContext.Req, ragContext.Rag, ragContext.KnowledgeIDToName, ragContext.QAIds)
 	if err != nil {
+		log.Errorf("BuildQaHitParams error %s", err)
 		return &RagEvent{
-			Error: err,
+			Skip: true,
 		}
 	}
 	search, err := rag_manage_service.RagQASearch(ctx, params)
 	if err != nil {
+		log.Errorf("RagQASearch error %s", err)
 		return &RagEvent{
-			Error: err,
+			Skip: true,
 		}
 	}
 

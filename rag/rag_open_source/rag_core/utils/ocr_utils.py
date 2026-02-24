@@ -1,28 +1,14 @@
-import traceback
-
-import requests
 import json
-import uuid
-import os
 import html2text
-import datetime
 import requests
-from collections import defaultdict
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-import os, time, traceback
+import os, traceback
 # import urllib3
-from datetime import datetime, timedelta
-from logging_config import setup_logging
-logger_name='rag_ocr_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+import logging
+
+logger = logging.getLogger(__name__)
+
 from utils.constant import MAX_SENTENCE_SIZE, OCR_MAX_WORKERS
-from model_manager import get_model_configure, OcrModelConfig
+from model_manager.model_config import get_model_configure, OcrModelConfig
 
 hl2txt = html2text.HTML2Text()
 

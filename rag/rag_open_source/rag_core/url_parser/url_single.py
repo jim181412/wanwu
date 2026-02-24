@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import requests
 import chardet
+import logging
 from flask import Flask, jsonify, request, make_response
 # from knowledge_base_utils import *
 from flask_cors import CORS
@@ -15,20 +16,17 @@ from urllib.parse import unquote_plus
 import argparse
 import re
 
-from logging_config import setup_logging
 from utils.http_util import validate_request
+from logging_config import init_logging
 
 
 TEMP_URL_FILES_DIR = os.path.join(os.path.dirname(__name__), 'temp_url_files')
 os.makedirs(TEMP_URL_FILES_DIR, exist_ok=True)
 
-
-logger_name='url_single'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+init_logging()
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['JSON_AS_ASCII'] = False

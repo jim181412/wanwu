@@ -2,8 +2,9 @@ package safe_go_util
 
 import (
 	"context"
-	"github.com/UnicomAI/wanwu/pkg/log"
 	"io"
+
+	"github.com/UnicomAI/wanwu/pkg/log"
 )
 
 type ChannelReceiveResult[T any] struct {

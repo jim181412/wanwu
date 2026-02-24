@@ -216,7 +216,10 @@ func toPermissions(isAdmin, isSystem bool, perms []*iam_service.Perm) []response
 			if !isSystem && r.Tag == "statistic_client" || config.Cfg().WorkflowTemplate.ServerMode == "remote" {
 				continue
 			}
-			if !isSystem && r.Tag == "oauth" {
+			if !isSystem && r.Tag == "operation" {
+				continue
+			}
+			if !isSystem && r.Tag == "operation.oauth" {
 				continue
 			}
 			ret = append(ret, response.Permission{

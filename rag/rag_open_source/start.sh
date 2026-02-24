@@ -1,13 +1,7 @@
 #!/bin/bash
 export PATH="/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/root/miniconda3/bin:/root/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-source activate
-
-# ================== hhh use ==================
-conda deactivate
-sleep 2
 
 cd /model_extend/rag_core
-conda activate rag-new
 bash start_run.sh
 sleep 2
 bash start_sse.sh

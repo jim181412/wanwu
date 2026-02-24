@@ -38,6 +38,13 @@
 
 ------
 
+### 📢 生態開放
+- [外部知識庫相容](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%BF%9E%E6%8E%A5%E5%A4%96%E6%8E%A5%E7%9F%A5%E8%AF%86%E5%BA%93.md)：支援以 API 匯入在 Dify 中建立的知識庫，並可在智能體、文字問答、工作流中進行檢索召回。
+- [MCP 廣場](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E8%B5%84%E6%BA%90%E5%BA%93%2FMCP%E6%9C%8D%E5%8A%A1.md)：支援匯入並使用不同服務商的 MCP 協定。
+- [Skills](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E8%B5%84%E6%BA%90%E5%BA%93%2FSkills.md)：支援 Skills 下載，可無縫對接 OpenClaw。
+- [OpenClaw沙箱](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/8.%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD%E4%BD%93%2F%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%8A%A9%E6%89%8B-OPENCLAW%2F%E5%A6%82%E4%BD%95%E5%9C%A8%E4%B8%87%E6%82%9F%E4%B8%AD%E6%8E%A5%E5%85%A5OpenClaw%E6%9C%BA%E5%99%A8%E4%BA%BA.md)：我們為每一個「龍蝦機器人」都提供了獨立Docker容器部署的選項。您可在元景萬悟中直接存取您本機部署的OpenClaw機器人。
+
+---
 ### &#x1F525; 採用寬鬆友好的 Apache 2.0 License，支援開發者自由擴展與二次開發
 
 ✔ **企業級工程化**：提供從模型納管到應用落地的完整工具鏈，解決LLM技術落地「最後一公里」問題  
@@ -48,7 +55,7 @@
 
 ✔ **多租戶架構**：提供多租戶帳號體系，滿足用戶成本控制、數據安全隔離、業務彈性擴展、行業定制化、快速上線及生態協同等核心需求
 
-✔ **信創適配**：已適配國產信創資料庫TiDB和OceanBase
+✔ **信創適配**：**產品已獲得《信創人工智能軟硬件系統檢驗證書》**，硬體層面支援華為鯤鵬CPU，軟體層面相容歐拉、CULinux、麒麟等國產作業系統，以及TiDB平凱資料庫、OceanBase等國產資料庫。
 
 ------
 
@@ -254,6 +261,8 @@
    ```
 
 4. 基於上述Docker安裝步驟，將系統服務完整啟動
+
+✔ **產品已獲得《信創人工智能軟硬件系統檢驗證書》**，硬體層面支援華為鯤鵬CPU，軟體層面相容歐拉、CULinux、麒麟等國產作業系統，以及TiDB平凱資料庫、OceanBase等國產資料庫。
 
 ------
 

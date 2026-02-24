@@ -13,12 +13,19 @@ type RagConfig struct {
 	KnowledgeBaseConfig   *AppKnowledgebaseConfig   `json:"knowledgeBaseConfig" validate:"required"`   // 知识库
 	QAKnowledgeBaseConfig *AppQAKnowledgebaseConfig `json:"qaKnowledgeBaseConfig" validate:"required"` // 问答库（不用传知识图谱开关）
 	SafetyConfig          *AppSafetyConfig          `json:"safetyConfig"`                              // 敏感词表配置
+	VisionConfig          *VisionConfig             `json:"visionConfig"`                              // 视觉开关配置
 }
 
 type ChatRagRequest struct {
-	RagID    string     `json:"ragId" validate:"required"`
-	Question string     `json:"question" validate:"required"`
-	History  []*History `json:"history"`
+	RagID    string                 `json:"ragId" validate:"required"`
+	Question string                 `json:"question" validate:"required"`
+	History  []*History             `json:"history"`
+	FileInfo []ConversionStreamFile `json:"fileInfo" form:"fileInfo"` //上传文档列表
+}
+
+type RagUploadParams struct {
+	Markdown bool `json:"markdown"` // 是否返回markdown格式url
+	CommonCheck
 }
 
 type History struct {

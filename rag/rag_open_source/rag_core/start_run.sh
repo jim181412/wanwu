@@ -16,7 +16,7 @@ for PORT in {8681..8681}; do
   sleep 2
   # 启动应用，并将输出重定向到指定的日志文件，同时在后台运行
   echo "正在启动FastAPI应用，端口号为$PORT..."
-      LOG_FILE=$BASE_LOG_FILE$PORT nohup gunicorn -w 5 -b 0.0.0.0:$PORT --timeout 600 run:app  &
+      LOG_FILE=$BASE_LOG_FILE$PORT nohup gunicorn -w 5 -b 0.0.0.0:$PORT --timeout 600 --preload run:app > /dev/null 2>&1 &
       # LOG_FILE=$BASE_LOG_FILE$PORT nohup python -u run.py --port $PORT  &
   echo "应用启动成功，日志文件为./logs/$BASE_LOG_FILE$PORT.log。"
 done

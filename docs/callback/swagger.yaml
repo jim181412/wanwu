@@ -89,39 +89,6 @@ definitions:
       providerYuanJing:
         $ref: '#/definitions/mp.ProviderModelByYuanjing'
     type: object
-  mp_common.AsrResp:
-    properties:
-      code:
-        type: integer
-      msg:
-        type: string
-      result:
-        $ref: '#/definitions/mp_common.AsrResult'
-      status:
-        type: string
-      uuid:
-        type: string
-    type: object
-  mp_common.AsrResult:
-    properties:
-      diarization:
-        items:
-          $ref: '#/definitions/mp_common.DiarizationObj'
-        type: array
-    type: object
-  mp_common.DiarizationObj:
-    properties:
-      end:
-        type: number
-      speaker:
-        type: integer
-      start:
-        type: number
-      text:
-        type: string
-      trans:
-        type: string
-    type: object
   mp_common.EmbeddingData:
     properties:
       embedding: {}
@@ -521,9 +488,13 @@ definitions:
         items:
           $ref: '#/definitions/mp_common.OcrData'
         type: array
+      filename:
+        type: string
       id:
         type: string
       message:
+        type: string
+      sha1:
         type: string
       time_cost:
         type: number
@@ -541,30 +512,9 @@ definitions:
         type: string
       name:
         type: string
-      parameters:
-        $ref: '#/definitions/mp_common.OpenAIFunctionParameters'
+      parameters: {}
     required:
     - name
-    type: object
-  mp_common.OpenAIFunctionParameters:
-    properties:
-      properties:
-        additionalProperties:
-          $ref: '#/definitions/mp_common.OpenAIFunctionParametersProperty'
-        type: object
-      required:
-        items:
-          type: string
-        type: array
-      type:
-        type: string
-    type: object
-  mp_common.OpenAIFunctionParametersProperty:
-    properties:
-      description:
-        type: string
-      type:
-        type: string
     type: object
   mp_common.OpenAIMsg:
     properties:
@@ -661,9 +611,13 @@ definitions:
         type: string
       message:
         type: string
+      prefix_image_url:
+        type: string
       status:
         type: string
       trace_id:
+        type: string
+      version:
         type: string
     required:
     - code
@@ -697,6 +651,17 @@ definitions:
     required:
     - relevance_score
     type: object
+  mp_common.SegmentedContent:
+    properties:
+      end:
+        type: string
+      speaker:
+        type: string
+      start:
+        type: string
+      text:
+        type: string
+    type: object
   mp_common.StreamOptions:
     properties:
       chunk_include_usage:
@@ -704,46 +669,94 @@ definitions:
       include_usage:
         type: boolean
     type: object
-  mp_common.T2IUsage:
+  mp_common.SyncAsrAudio:
     properties:
-      total_patches:
+      data:
+        type: string
+      fileName:
+        type: string
+    type: object
+  mp_common.SyncAsrReq:
+    properties:
+      extra:
+        additionalProperties: true
+        type: object
+      messages:
+        items:
+          $ref: '#/definitions/mp_common.SyncAsrReqMsg'
+        type: array
+      model:
+        type: string
+    required:
+    - messages
+    - model
+    type: object
+  mp_common.SyncAsrReqC:
+    properties:
+      audio:
+        $ref: '#/definitions/mp_common.SyncAsrAudio'
+      text:
+        type: string
+      type:
+        type: string
+    required:
+    - type
+    type: object
+  mp_common.SyncAsrReqMsg:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/mp_common.SyncAsrReqC'
+        type: array
+      role:
+        type: string
+    required:
+    - content
+    - role
+    type: object
+  mp_common.SyncAsrReqMsgRespChoice:
+    properties:
+      finish_reason:
+        type: string
+      message:
+        $ref: '#/definitions/mp_common.SyncAsrRespMsg'
+    type: object
+  mp_common.SyncAsrResp:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/mp_common.SyncAsrReqMsgRespChoice'
+        type: array
+      code:
         type: integer
+      seconds:
+        type: integer
+    type: object
+  mp_common.SyncAsrRespMsg:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/mp_common.SyncAsrRespMsgC'
+        type: array
+      extra:
+        additionalProperties: true
+        type: object
+      role:
+        $ref: '#/definitions/mp_common.MsgRole'
+    type: object
+  mp_common.SyncAsrRespMsgC:
+    properties:
+      segmented_content:
+        items:
+          $ref: '#/definitions/mp_common.SegmentedContent'
+        type: array
+      text:
+        type: string
     type: object
   mp_common.Tag:
     properties:
       text:
         type: string
-    type: object
-  mp_common.Text2ImageReq:
-    properties:
-      advanced_opt:
-        description: '高级选项参数 json, {"height": 512, "width": 512, "num_images_per_prompt":
-          1, "style": "摄影"}'
-        type: string
-      prompt:
-        description: 提示词
-        type: string
-      report_url:
-        description: 参考
-        type: string
-      response_format:
-        description: “url” or “b64_json”,默认b64_json
-        type: string
-    required:
-    - prompt
-    type: object
-  mp_common.Text2ImageResp:
-    properties:
-      code:
-        type: integer
-      msg:
-        type: string
-      result:
-        items:
-          type: string
-        type: array
-      usage:
-        $ref: '#/definitions/mp_common.T2IUsage'
     type: object
   mp_common.TextRerankReq:
     properties:
@@ -832,6 +845,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -865,6 +881,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -904,6 +923,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -994,6 +1016,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -1045,6 +1070,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -1096,6 +1124,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -1156,6 +1187,9 @@ definitions:
         - noSupport
         - toolCall
         type: string
+      maxImageSize:
+        description: 最大图片大小限制
+        type: integer
       maxTokens:
         description: 模型回答最大tokens
         type: integer
@@ -1418,8 +1452,20 @@ definitions:
       logical_operator:
         type: string
     type: object
+  request.RagKnowledgeAttachment:
+    properties:
+      file_type:
+        type: string
+      file_url:
+        type: string
+    type: object
   request.RagKnowledgeChatReq:
     properties:
+      attachment_files:
+        description: 上传的多模态文件
+        items:
+          $ref: '#/definitions/request.RagKnowledgeAttachment'
+        type: array
       auto_citation:
         description: 是否自动角标
         type: boolean
@@ -1428,6 +1474,9 @@ definitions:
         type: boolean
       custom_model_info:
         $ref: '#/definitions/request.CustomModelInfo'
+      enable_vision:
+        description: 召回结果是否包含多模态文件
+        type: boolean
       history:
         items:
           $ref: '#/definitions/request.HistoryItem'
@@ -1513,8 +1562,16 @@ definitions:
     type: object
   request.RagSearchKnowledgeBaseReq:
     properties:
+      attachment_files:
+        description: 上传的多模态文件
+        items:
+          $ref: '#/definitions/request.RagKnowledgeAttachment'
+        type: array
       auto_citation:
         description: 是否启动知识图谱查询
+        type: boolean
+      enable_vision:
+        description: 召回结果是否包含多模态文件
         type: boolean
       knowledge_base_info:
         additionalProperties:
@@ -1566,7 +1623,6 @@ definitions:
         description: 权重搜索下的权重配置
     required:
     - knowledgeIdList
-    - question
     - userId
     type: object
   request.RagSearchQABaseReq:
@@ -1824,6 +1880,8 @@ definitions:
         type: string
       publishDate:
         description: 模型发布时间
+        type: string
+      scopeType:
         type: string
       tags:
         items:
@@ -2160,31 +2218,27 @@ paths:
   /model/{modelId}/asr:
     post:
       consumes:
-      - multipart/form-data
+      - application/json
       parameters:
       - description: 模型ID
         in: path
         name: modelId
         required: true
         type: string
-      - description: 语音文件
-        in: formData
-        name: file
-        required: true
-        type: file
       - description: 请求参数
-        in: formData
-        name: config
+        in: body
+        name: data
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/mp_common.SyncAsrReq'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mp_common.AsrResp'
-      summary: Model Asr
+            $ref: '#/definitions/mp_common.SyncAsrResp'
+      summary: Model SyncAsr
       tags:
       - callback
   /model/{modelId}/chat/completions:
@@ -2398,33 +2452,6 @@ paths:
       summary: Model Rerank
       tags:
       - callback
-  /model/{modelId}/text2image:
-    post:
-      consumes:
-      - multipart/form-data
-      - application/json
-      parameters:
-      - description: 模型ID
-        in: path
-        name: modelId
-        required: true
-        type: string
-      - description: 请求参数
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/mp_common.Text2ImageReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mp_common.Text2ImageResp'
-      summary: Model Text-to-Image
-      tags:
-      - callback
   /rag/knowledge/stream/search:
     post:
       consumes:
@@ -2489,41 +2516,6 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 查询问答列表（命中测试）
-      tags:
-      - callback
-  /tool/builtin/asr:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 语音文件 base64
-        in: formData
-        name: file
-        required: true
-        type: file
-      - description: 请求参数
-        in: formData
-        name: config
-        required: true
-        type: string
-      - description: api token
-        in: formData
-        name: apiKey
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Response'
-            - properties:
-                data:
-                  type: string
-              type: object
-      summary: 语音文件（base64格式）转文本内置工具服务
       tags:
       - callback
   /workflow/list:

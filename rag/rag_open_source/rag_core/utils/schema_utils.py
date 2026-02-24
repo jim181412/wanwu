@@ -2,15 +2,9 @@ import os
 import json
 import pandas as pd
 import sys
+import logging
 
-from logging_config import setup_logging
-
-logger_name = 'rag_schema_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
-
-
+logger = logging.getLogger(__name__)
 
 def parse_excel_to_schema_json(file_path):
     """

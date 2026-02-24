@@ -148,7 +148,7 @@ func CheckKnowledgeDocSameName(ctx context.Context, userId string, knowledgeId s
 	var count int64
 	var docUrlMd5 = ""
 	if len(docUrl) > 0 {
-		docUrlMd5 = util.MD5(docUrl)
+		docUrlMd5 = wanwu_util.MD5([]byte(docUrl))
 	}
 	err := sqlopt.SQLOptions(sqlopt.WithPermit("", userId),
 		sqlopt.WithKnowledgeID(knowledgeId),
@@ -365,6 +365,8 @@ func ReImportKnowledgeDoc(ctx context.Context, doc *model.KnowledgeDoc, importTa
 
 		return err
 	}
+	embeddingModelInfo := &knowledgebase_service.EmbeddingModelInfo{}
+	_ = json.Unmarshal([]byte(knowledge.EmbeddingModel), embeddingModelInfo)
 	var preProcess = &model.DocPreProcess{}
 	if len(importTask.DocPreProcess) > 0 {
 		err = json.Unmarshal([]byte(importTask.DocPreProcess), preProcess)
@@ -399,6 +401,9 @@ func ReImportKnowledgeDoc(ctx context.Context, doc *model.KnowledgeDoc, importTa
 			SplitType:             service.RebuildSplitType(config.SegmentMethod),
 			Separators:            config.Splitter,
 			ParserChoices:         analyzer.AnalyzerList,
+			AsrModelId:            analyzer.AsrModelId,
+			MultimodalModelId:     analyzer.MultimodalModelId,
+			EmbeddingModelId:      embeddingModelInfo.ModelId,
 			ObjectName:            objectName,
 			OriginalName:          doc.Name,
 			IsEnhanced:            "false",
@@ -468,7 +473,7 @@ func UpdateDocInfo(tx *gorm.DB, docId string, status int, fileUrl string, import
 	}
 	if len(fileUrl) > 0 {
 		updateParams["file_path"] = fileUrl
-		updateParams["file_path_md5"] = util.MD5(fileUrl)
+		updateParams["file_path_md5"] = wanwu_util.MD5([]byte(fileUrl))
 	}
 	if len(importTaskId) > 0 {
 		updateParams["batch_id"] = importTaskId

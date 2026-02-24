@@ -9,6 +9,7 @@ import (
 	err_code "github.com/UnicomAI/wanwu/api/proto/err-code"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
+	"github.com/UnicomAI/wanwu/pkg/constant"
 	gin_util "github.com/UnicomAI/wanwu/pkg/gin-util"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
@@ -21,8 +22,9 @@ func UrlConversationCreate(ctx *gin.Context, req request.UrlConversationCreateRe
 		return nil, err
 	}
 	resp, err := assistant.ConversationCreate(ctx, &assistant_service.ConversationCreateReq{
-		AssistantId: appUrlInfo.AppId,
-		Prompt:      req.Prompt,
+		AssistantId:      appUrlInfo.AppId,
+		Prompt:           req.Prompt,
+		ConversationType: constant.ConversationTypeWebURL,
 		Identity: &assistant_service.Identity{
 			UserId: xCId,
 			OrgId:  appUrlInfo.OrgId,
@@ -81,8 +83,9 @@ func GetUrlConversationList(ctx *gin.Context, xCId, suffix string) (*response.Li
 		return nil, err
 	}
 	resp, err := assistant.GetConversationList(ctx, &assistant_service.GetConversationListReq{
-		PageSize: 1000,
-		PageNo:   1,
+		PageSize:         1000,
+		PageNo:           1,
+		ConversationType: constant.ConversationTypeWebURL,
 		Identity: &assistant_service.Identity{
 			UserId: xCId,
 			OrgId:  appUrlInfo.OrgId,
@@ -121,7 +124,6 @@ func AppUrlConversionStream(ctx *gin.Context, req request.UrlConversionStreamReq
 		AssistantId:    appUrlInfo.AppId,
 		ConversationId: req.ConversationId,
 		FileInfo:       []request.ConversionStreamFile{},
-		Trial:          false,
 		Prompt:         req.Prompt,
 	}, true)
 	if err != nil {
@@ -152,4 +154,18 @@ func getAppUrlInfoAndCheck(ctx *gin.Context, suffix string) (*app_service.AppUrl
 	ctx.Set(gin_util.USER_ID, appUrlInfo.UserId)
 	ctx.Set(gin_util.X_ORG_ID, appUrlInfo.OrgId)
 	return appUrlInfo, nil
+}
+
+func AppUrlQuestionRecommend(ctx *gin.Context, req request.UrlQuestionRecommendRequest, xCid, suffix string) error {
+	appUrlInfo, err := getAppUrlInfoAndCheck(ctx, suffix)
+	if err != nil {
+		return err
+	}
+	err = AssistantQuestionRecommend(ctx, xCid, appUrlInfo.OrgId, &request.QuestionRecommendRequest{
+		Query:          req.Query,
+		AssistantId:    appUrlInfo.AppId,
+		ConversationId: req.ConversationId,
+		Trial:          false,
+	})
+	return err
 }

@@ -468,3 +468,24 @@ func ExportKnowledgeDoc(ctx *gin.Context) {
 	err := service.ExportKnowledgeDoc(ctx, userId, orgId, &req)
 	gin_util.Response(ctx, nil, err)
 }
+
+// GetDocUploadLimit
+//
+//	@Tags			knowledge.doc
+//	@Summary		获取可上传文件类型
+//	@Description	获取可上传文件类型
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			data	query		request.QueryKnowledgeReq	true	"获取可上传文件类型请求参数"
+//	@Success		200		{object}	response.Response{data=response.DocUploadLimitResp}
+//	@Router			/knowledge/doc/upload/limit [get]
+func GetDocUploadLimit(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.QueryKnowledgeReq
+	if !gin_util.BindQuery(ctx, &req) {
+		return
+	}
+	resp, err := service.GetDocUploadLimit(ctx, userId, orgId, &req)
+	gin_util.Response(ctx, resp, err)
+}

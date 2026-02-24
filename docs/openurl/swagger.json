@@ -328,6 +328,59 @@
                 }
             }
         },
+        "/agent/{suffix}/recommend": {
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "智能体推荐问题",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "openurl"
+                ],
+                "summary": "智能体推荐问题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "临时唯一标识",
+                        "name": "X-Client-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Url后缀",
+                        "name": "suffix",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "智能体推荐问题参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.UrlQuestionRecommendRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/agent/{suffix}/stream": {
             "post": {
                 "security": [
@@ -577,6 +630,14 @@
                 "id"
             ],
             "properties": {
+                "category": {
+                    "description": "知识库类别 0-知识库，1-问答库，2-多模态知识库",
+                    "type": "integer"
+                },
+                "external": {
+                    "description": "外部数据库标识",
+                    "type": "integer"
+                },
                 "graphSwitch": {
                     "description": "知识图谱开关",
                     "type": "integer"
@@ -831,6 +892,20 @@
                 }
             }
         },
+        "request.UrlQuestionRecommendRequest": {
+            "type": "object",
+            "required": [
+                "query"
+            ],
+            "properties": {
+                "conversationId": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                }
+            }
+        },
         "response.AppUrlConfig": {
             "type": "object",
             "properties": {
@@ -944,7 +1019,7 @@
                     ]
                 },
                 "category": {
-                    "description": "1.单智能体 2.多智能体",
+                    "description": "智能体分类 1.单智能体 2.多智能体",
                     "type": "integer"
                 },
                 "createdAt": {
@@ -1262,6 +1337,12 @@
                     "type": "string"
                 },
                 "searchList": {},
+                "subConversationList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.SubConversation"
+                    }
+                },
                 "sysPrompt": {
                     "type": "string"
                 },
@@ -1333,6 +1414,43 @@
                 },
                 "data": {},
                 "msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.SubConversation": {
+            "type": "object",
+            "properties": {
+                "conversationType": {
+                    "description": "subAgent：子智能体；agentTool：主智能体工具；subAgentTool：子智能体工具",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "事件id",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "事件名称",
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "事件挂载id",
+                    "type": "string"
+                },
+                "profile": {
+                    "description": "事件头像",
+                    "type": "string"
+                },
+                "response": {
+                    "type": "string"
+                },
+                "searchList": {},
+                "status": {
+                    "description": "1:成功，2：失败",
+                    "type": "integer"
+                },
+                "timeCost": {
+                    "description": "耗时",
                     "type": "string"
                 }
             }

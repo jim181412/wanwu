@@ -108,3 +108,10 @@ if MODEL_PROVIDER_URL is None:
 
 #graph
 GRAPH_SERVER_URL = config.getstr('GRAPH', 'GRAPH_SERVER_URL')
+
+#image
+IMAGE_MINIMUM_WIDTH = config.getint('IMAGE', 'IMAGE_MINIMUM_WIDTH')
+IMAGE_MINIMUM_HEIGHT = config.getint('IMAGE', 'IMAGE_MINIMUM_HEIGHT')
+
+#keyword
+NO_CONTENT = config.getstr('KEYWORD', 'NO_CONTENT')

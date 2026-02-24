@@ -62,6 +62,7 @@ message ModelInfo {
     int64 updatedAt = 13;
     string modelDesc = 14;
     string uuid = 15;
+    string scopeType = 16;
 }
 
 message ModelInfos {
@@ -92,6 +93,7 @@ message ListModelsReq{
     string userId = 4;
     string orgId = 5;
     string displayName = 6;     // 模型显示名称
+    string scopeType = 7;       // 模型作用域类型
 }
 
 message ModelStatusReq {

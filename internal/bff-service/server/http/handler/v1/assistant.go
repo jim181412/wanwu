@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/service"
+	"github.com/UnicomAI/wanwu/pkg/constant"
 	gin_util "github.com/UnicomAI/wanwu/pkg/gin-util"
 	"github.com/gin-gonic/gin"
 )
@@ -360,7 +361,8 @@ func ConversationCreate(ctx *gin.Context) {
 	if !gin_util.Bind(ctx, &req) {
 		return
 	}
-	resp, err := service.ConversationCreate(ctx, userId, orgId, req)
+
+	resp, err := service.ConversationCreate(ctx, userId, orgId, req, constant.ConversationTypePublished)
 	gin_util.Response(ctx, resp, err)
 }
 
@@ -448,9 +450,88 @@ func DraftAssistantConversionStream(ctx *gin.Context) {
 	if !gin_util.Bind(ctx, &req) {
 		return
 	}
+
+	// 获取会话id
+	conversationIdResp, _ := service.GetDraftConversationIdByAssistantID(ctx, userId, orgId, request.ConversationGetListRequest{
+		AssistantId: req.AssistantId,
+	})
+
+	// 创建会话id
+	if conversationIdResp == nil {
+		newConversationId, err := service.ConversationCreate(ctx, userId, orgId, request.ConversationCreateRequest{
+			AssistantId: req.AssistantId,
+			Prompt:      req.Prompt,
+		}, constant.ConversationTypeDraft)
+		if err != nil {
+			gin_util.Response(ctx, nil, err)
+		}
+		req.ConversationId = newConversationId.ConversationId
+	} else {
+		req.ConversationId = conversationIdResp.ConversationId
+	}
+
 	if err := service.AssistantConversionStream(ctx, userId, orgId, req, false); err != nil {
 		gin_util.Response(ctx, nil, err)
 	}
+}
+
+// DraftAssistantConversationDetailList
+//
+//	@Tags			agent
+//	@Summary		草稿智能体对话详情历史列表
+//	@Description	草稿智能体对话详情历史列表
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			assistantId	query		string	true	"智能体id"
+//	@Param			pageNo		query		int		true	"页面编号"
+//	@Param			pageSize	query		int		true	"单页数量"
+//	@Success		200			{object}	response.Response{data=response.PageResult{list=[]response.ConversationDetailInfo}}
+//	@Router			/assistant/conversation/draft/detail [get]
+func DraftAssistantConversationDetailList(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.ConversationGetListRequest
+	if !gin_util.BindQuery(ctx, &req) {
+		return
+	}
+
+	// 获取会话id
+	conversationIdResp, err := service.GetDraftConversationIdByAssistantID(ctx, userId, orgId, request.ConversationGetListRequest{
+		AssistantId: req.AssistantId,
+	})
+	if err != nil {
+		gin_util.Response(ctx, nil, err)
+		return
+	}
+
+	// 获取对话详情列表
+	resp, err := service.GetConversationDetailList(ctx, userId, orgId, request.ConversationGetDetailListRequest{
+		ConversationId: conversationIdResp.ConversationId,
+		PageSize:       req.PageSize,
+		PageNo:         req.PageNo,
+	})
+	gin_util.Response(ctx, resp, err)
+}
+
+// DraftAssistantConversationDelete
+//
+//	@Tags			agent
+//	@Summary		删除草稿智能体对话
+//	@Description	删除草稿智能体对话
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			data	body		request.ConversationDeleteRequest	true	"智能体对话删除参数"
+//	@Success		200		{object}	response.Response
+//	@Router			/assistant/conversation/draft [delete]
+func DraftAssistantConversationDelete(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.ConversationDeleteRequest
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	resp, err := service.DraftConversationDeleteByAssistantID(ctx, userId, orgId, req)
+	gin_util.Response(ctx, resp, err)
 }
 
 // PublishedAssistantConversionStream

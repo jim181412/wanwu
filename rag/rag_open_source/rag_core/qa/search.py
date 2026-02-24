@@ -1,13 +1,11 @@
 import os
 import json
+import logging
 from typing import Optional
-from logging_config import setup_logging
 from utils import es_utils, rerank_utils
+from model_manager.model_config import get_model_configure
 
-logger_name = 'rag_es_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
+logger = logging.getLogger(__name__)
 
 def search_qa_base(question, top_k, threshold=0.0, return_meta=False, retrieve_method="hybrid_search",
                    rerank_model_id='', rerank_mod="rerank_model",weights: Optional[dict] | None = None,
@@ -58,15 +56,26 @@ def search_qa_base(question, top_k, threshold=0.0, return_meta=False, retrieve_m
             logger.info('qa_result_list is None 重排结果：' + json.dumps(repr(response_info),ensure_ascii=False))
             return response_info
         if rerank_mod == "rerank_model":
-            documents = [{"text": qa_info["question"]} for qa_info in qa_result_list]
-            rerank_result = rerank_utils.get_model_rerank(question, top_k, documents,
-                                                          qa_result_list, rerank_model_id)
+            model_config = get_model_configure(rerank_model_id)
+            is_support_multimodal = model_config.is_multimodal
+            query = question
+            if is_support_multimodal:
+                documents = [{"text": qa_info["question"]} for qa_info in qa_result_list]
+                query = {"text": question}
+            else:
+                documents = [qa_info["question"] for qa_info in qa_result_list]
+            rerank_result = rerank_utils.model_rerank(query,
+                                                      top_k,
+                                                      documents,
+                                                      qa_result_list,
+                                                      rerank_model_id,
+                                                      model_config=model_config) #type: ignore
         elif rerank_mod == "weighted_score":
-            rerank_result = es_utils.qa_weighted_rerank(question, weights, top_k, search_list_infos)
+            rerank_result = rerank_utils.qa_weighted_rerank(question, weights, top_k, search_list_infos)
         else:
             raise Exception("rerank_mod is not valid")
         if rerank_result["code"] != 0:
-            logger.warn(f"rerank failed, rerank method: {rerank_mod}, rerank result: {rerank_result}")
+            logger.warning(f"rerank failed, rerank method: {rerank_mod}, rerank result: {rerank_result}")
             raise RuntimeError(rerank_result["message"])
         sorted_scores = rerank_result['data']["sorted_scores"]
         sorted_search_list = rerank_result['data']["sorted_search_list"]

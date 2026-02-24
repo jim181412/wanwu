@@ -77,6 +77,12 @@ type KnowledgeHitParams struct {
 	MetaFilter           bool                  `json:"metadata_filtering"`            // 元数据过滤开关
 	MetaFilterConditions []*MetadataFilterItem `json:"metadata_filtering_conditions"` // 元数据过滤条件
 	UseGraph             bool                  `json:"use_graph"`                     // 是否使用知识图谱
+	AttachmentList       []*AttachmentInfo     `json:"attachment_files"`              // 上传的文件
+}
+
+type AttachmentInfo struct {
+	FileType string `json:"file_type"`
+	FileUrl  string `json:"file_url"`
 }
 
 type MetadataFilterItem struct {
@@ -118,8 +124,15 @@ type ChunkSearchList struct {
 	ChildContentList []*ChildContent `json:"child_content_list"`
 	ChildScore       []float64       `json:"child_score"`
 	ContentType      string          `json:"content_type"` // graph：知识图谱（文本）, text：文档分段（文本）, community_report：社区报告（markdown）
+	RerankInfo       []*RerankInfo   `json:"rerank_info"`
+	Score            float64         `json:"score"`
 }
 
+type RerankInfo struct {
+	Type    string  `json:"type"`
+	FileUrl string  `json:"file_url"`
+	Score   float64 `json:"score"`
+}
 type ChildContent struct {
 	ChildSnippet string  `json:"child_snippet"`
 	Score        float64 `json:"score"`

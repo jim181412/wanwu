@@ -6,14 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/UnicomAI/wanwu/pkg/log"
-	mp_common "github.com/UnicomAI/wanwu/pkg/model-provider/mp-common"
-	"github.com/UnicomAI/wanwu/pkg/util"
-	"github.com/go-resty/resty/v2"
 	"io"
 	"mime/multipart"
 	"net/url"
 	"strings"
+
+	"github.com/UnicomAI/wanwu/pkg/log"
+	mp_common "github.com/UnicomAI/wanwu/pkg/model-provider/mp-common"
+	"github.com/UnicomAI/wanwu/pkg/util"
+	"github.com/go-resty/resty/v2"
 )
 
 type SyncAsr struct {
@@ -83,7 +84,7 @@ func (cfg *SyncAsr) NewReq(req *mp_common.SyncAsrReq) (mp_common.ISyncAsrReq, er
 		if err != nil {
 			return nil, fmt.Errorf("filebase64 fileData decode err: %v", err)
 		}
-		fileHeader, err := util.BytesToFileHeaderNoTemp(targetContent.Audio.FileName, fileDataFromBase64)
+		fileHeader, err := util.FileData2FileHeader(targetContent.Audio.FileName, fileDataFromBase64)
 		if err != nil {
 			return nil, fmt.Errorf("filedata %s to multipart err: %v", targetContent.Audio.FileName, err)
 		}

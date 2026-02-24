@@ -7,6 +7,12 @@ import (
 
 type sqlOptions []SQLOption
 
+const (
+	ModelScopeTypePrivate = 1
+	ModelScopeTypePublic  = 2
+	ModelScopeTypeOrg     = 3
+)
+
 func SQLOptions(opts ...SQLOption) sqlOptions {
 	return opts
 }
@@ -61,6 +67,17 @@ func WithUserID(userID string) SQLOption {
 			return db.Where("user_id = ?", userID)
 		}
 		return db
+	})
+}
+
+func WithUserOrgOrPublicScope(userID, orgID string) SQLOption {
+	return funcSQLOption(func(db *gorm.DB) *gorm.DB {
+		return db.Where(
+			"(user_id = ? AND org_id = ? AND scope_type = ?) OR (scope_type = ?) OR (org_id = ? AND scope_type = ?)",
+			userID, orgID, ModelScopeTypePrivate,
+			ModelScopeTypePublic,
+			orgID, ModelScopeTypeOrg,
+		)
 	})
 }
 

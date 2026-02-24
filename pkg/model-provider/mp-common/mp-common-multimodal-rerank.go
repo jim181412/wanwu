@@ -13,6 +13,12 @@ import (
 )
 
 // --- openapi request ---
+//query 分俩种：
+//1. "query": "查询文本"
+//2. "query": {
+//   "text": "查询文本"
+//   "image": "图片base64编码 或 url"
+// },
 
 type MultiModalRerankReq struct {
 	Documents       []MultiDocument `json:"documents" validate:"required"` // 需要重排序的内容列表

@@ -20,6 +20,10 @@ func ModelEmbeddings(ctx *gin.Context, modelID string, req *mp_common.EmbeddingR
 		gin_util.Response(ctx, nil, err)
 		return
 	}
+	if !modelInfo.IsActive {
+		gin_util.Response(ctx, nil, grpc_util.ErrorStatus(err_code.Code_BFFModelStatus, modelInfo.ModelId))
+		return
+	}
 
 	// 校验model字段
 	if req != nil {

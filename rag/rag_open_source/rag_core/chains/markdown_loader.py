@@ -1,19 +1,15 @@
 import os
+import logging
 from typing import List, Optional, cast
 import re
 from langchain_core.documents import Document
-logger_name='rag_markdown_loader'
-app_name = os.getenv("LOG_FILE")
-from logging_config import setup_logging
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
 
 from utils.file_encoding_utils import detect_encodings
 from pathlib import Path
 from typing import Optional, Union
 from langchain_community.document_loaders.base import BaseLoader
 
-
+logger = logging.getLogger(__name__)
 
 class MarkdownLoader(BaseLoader):
     def __init__(

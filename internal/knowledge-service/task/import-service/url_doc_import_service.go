@@ -100,7 +100,7 @@ func buildKnowledgeUrlDoc(importTask *model.KnowledgeImportTask, docInfo *CheckF
 		ImportTaskId: importTask.ImportId,
 		KnowledgeId:  importTask.KnowledgeId,
 		FilePath:     docInfo.DocInfo.DocUrl,
-		FilePathMd5:  util.MD5(docInfo.DocInfo.DocUrl),
+		FilePathMd5:  wanwu_util.MD5([]byte(docInfo.DocInfo.DocUrl)),
 		Name:         docInfo.DocInfo.DocName,
 		Status:       docInfo.Status,
 		ErrorMsg:     docInfo.ErrMessage,

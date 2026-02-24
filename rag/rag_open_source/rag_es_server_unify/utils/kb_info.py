@@ -7,6 +7,7 @@ from log.logger import logger
 from elasticsearch import helpers
 from settings import GET_KB_ID_URL, KBNAME_MAPPING_INDEX
 
+
 def get_maas_kb_id(user_id, kb_name):
     """获取maas的kb_id"""
     try:
@@ -47,6 +48,15 @@ def get_uk_kb_id(userId, kb_name):
     logger.info(f"userId:{userId},kb_name:{kb_name} 对应的 kb_id 为:{kb_id}")
     return kb_id
 
+def is_multimodal_kb(user_id: str,
+                     kb_name: str):
+    """ 判断是否是多模态知识库 """
+    kb_info = get_uk_kb_info(user_id, kb_name)
+    if kb_info and "is_multimodal" in kb_info and kb_info["is_multimodal"]:
+        return True
+
+    return False
+
 
 def get_uk_kb_info(userId, kb_name):
     """ 获取知识库info  """
@@ -74,6 +84,10 @@ def get_uk_kb_info(userId, kb_name):
         kb_info["embedding_model_id"] = hit['_source']["embedding_model_id"]
         if "enable_graph" in hit['_source']:
             kb_info["enable_knowledge_graph"] = hit['_source']["enable_graph"]
+        if "is_multimodal" in hit['_source']:
+            kb_info["is_multimodal"] = hit['_source']["is_multimodal"]
+        else:
+            kb_info["is_multimodal"] = False
     logger.info(f"userId:{userId},kb_name:{kb_name} 对应的 kb_info 为:{kb_info}")
     return kb_info
 

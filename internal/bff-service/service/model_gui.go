@@ -20,6 +20,10 @@ func ModelGui(ctx *gin.Context, modelID string, req *mp_common.GuiReq) {
 		gin_util.Response(ctx, nil, err)
 		return
 	}
+	if !modelInfo.IsActive {
+		gin_util.Response(ctx, nil, grpc_util.ErrorStatus(err_code.Code_BFFModelStatus, modelInfo.ModelId))
+		return
+	}
 
 	// gui config
 	gui, err := mp.ToModelConfig(modelInfo.Provider, modelInfo.ModelType, modelInfo.ProviderConfig)

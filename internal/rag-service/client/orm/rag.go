@@ -124,6 +124,9 @@ func BuildRagInfo(info *model.RagInfo) (*rag_service.RagInfo, *err_code.Status) 
 			Enable:   info.SensitiveConfig.Enable,
 			TableIds: sensitiveIds,
 		},
+		VisionConfig: &rag_service.RagVisionConfig{
+			PicNum: info.VisionConfig.PicNum,
+		},
 	}
 	return resp, nil
 }
@@ -300,6 +303,8 @@ func (c *Client) UpdateRagConfig(ctx context.Context, rag *model.RagInfo) *err_c
 
 				"sensitive_enable":    rag.SensitiveConfig.Enable,
 				"sensitive_table_ids": rag.SensitiveConfig.TableIds,
+
+				"vision_pic_num": rag.VisionConfig.PicNum,
 			}
 
 			// 只更新指定 ragID 的记录

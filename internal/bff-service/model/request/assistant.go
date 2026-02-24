@@ -1,9 +1,5 @@
 package request
 
-import (
-	"fmt"
-)
-
 type AssistantBrief struct {
 	AssistantId string `json:"assistantId"  validate:"required"`
 	AppBriefConfig
@@ -115,6 +111,12 @@ type ConversationCreateRequest struct {
 
 func (c *ConversationCreateRequest) Check() error { return nil }
 
+type ConversationDeleteRequest struct {
+	AssistantId string `json:"assistantId"  validate:"required"`
+}
+
+func (c *ConversationDeleteRequest) Check() error { return nil }
+
 type ConversationIdRequest struct {
 	ConversationId string `json:"conversationId" form:"conversationId"  validate:"required"`
 }
@@ -141,16 +143,11 @@ type ConversionStreamRequest struct {
 	AssistantId    string                 `json:"assistantId" form:"assistantId"  validate:"required"`
 	ConversationId string                 `json:"conversationId" form:"conversionId"`
 	FileInfo       []ConversionStreamFile `json:"fileInfo" form:"fileInfo"`
-	Trial          bool                   `json:"trial" form:"trial"`
 	Prompt         string                 `json:"prompt" form:"prompt"  validate:"required"`
 	SystemPrompt   string                 `json:"systemPrompt" form:"systemPrompt"`
 }
 
 func (c *ConversionStreamRequest) Check() error {
-	// 当Trial=false时，ConversationId必填
-	if !c.Trial && c.ConversationId == "" {
-		return fmt.Errorf("conversationId is required when trial is false")
-	}
 	return nil
 }
 
@@ -230,13 +227,9 @@ type QuestionRecommendRequest struct {
 	Query          string `json:"query" form:"query"  validate:"required"`             //用户问题
 	AssistantId    string `json:"assistantId" form:"assistantId"  validate:"required"` //智能体id
 	ConversationId string `json:"conversationId" form:"conversionId"`                  //会话id，如果非试用则不可为空
-	Trial          bool   `json:"trial" form:"trial"`                                  //是否试用
+	Trial          bool   `json:"trial" form:"trial"`
 }
 
 func (c *QuestionRecommendRequest) Check() error {
-	// 当Trial=false时，ConversationId必填
-	if !c.Trial && c.ConversationId == "" {
-		return fmt.Errorf("conversationId is required when trial is false")
-	}
 	return nil
 }

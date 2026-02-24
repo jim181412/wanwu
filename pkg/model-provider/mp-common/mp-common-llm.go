@@ -216,20 +216,9 @@ type OpenAITool struct {
 }
 
 type OpenAIFunction struct {
-	Name        string                    `json:"name" validate:"required"`
-	Description string                    `json:"description,omitempty"`
-	Parameters  *OpenAIFunctionParameters `json:"parameters,omitempty"`
-}
-
-type OpenAIFunctionParameters struct {
-	Type       string                                      `json:"type"`
-	Properties map[string]OpenAIFunctionParametersProperty `json:"properties"`
-	Required   []string                                    `json:"required,omitempty"`
-}
-
-type OpenAIFunctionParametersProperty struct {
-	Description string `json:"description"`
-	Type        string `json:"type"`
+	Name        string      `json:"name" validate:"required"`
+	Description string      `json:"description,omitempty"`
+	Parameters  interface{} `json:"parameters,omitempty"`
 }
 
 func (req *LLMReq) Check() error { return nil }

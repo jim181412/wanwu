@@ -122,6 +122,12 @@ func ToModelTags(provider, modelType, cfg string) ([]mp_common.Tag, error) {
 				return nil, fmt.Errorf("unmarshal model config err: %v", err)
 			}
 			tags = rerank.Tags()
+		case ModelTypeMultiRerank:
+			rerank := &mp_yuanjing.MultiModalRerank{}
+			if err := json.Unmarshal([]byte(cfg), rerank); err != nil {
+				return nil, fmt.Errorf("unmarshal model config err: %v", err)
+			}
+			tags = rerank.Tags()
 		case ModelTypeTextEmbedding:
 			embedding := &mp_yuanjing.Embedding{}
 			if err := json.Unmarshal([]byte(cfg), embedding); err != nil {
@@ -347,6 +353,14 @@ func ToModelConfig(provider, modelType, cfg string) (interface{}, error) {
 			ret = &mp_yuanjing.LLM{}
 		case ModelTypeTextRerank:
 			ret = &mp_yuanjing.Rerank{}
+		case ModelTypeMultiRerank:
+			ret = &mp_yuanjing.MultiModalRerank{
+				MaxTextLength:       &maxTextLength,
+				MaxVideoClipSize:    &maxVideoClipSize,
+				MaxImageSize:        &maxImageSize,
+				SupportFileTypes:    []string{"image"},
+				SupportImageInQuery: true,
+			}
 		case ModelTypeTextEmbedding:
 			ret = &mp_yuanjing.Embedding{}
 		case ModelTypeOcr:
@@ -436,7 +450,7 @@ func ToModelConfig(provider, modelType, cfg string) (interface{}, error) {
 				MaxTextLength:       &maxTextLength,
 				MaxVideoClipSize:    &maxVideoClipSize,
 				MaxImageSize:        &maxImageSize,
-				SupportFileTypes:    []string{"image", "video"},
+				SupportFileTypes:    []string{"image"},
 				SupportImageInQuery: false,
 			}
 		case ModelTypeMultiEmbedding:

@@ -2,13 +2,10 @@ import requests
 import json
 import time
 import os
-from logging_config import setup_logging
 from settings import MQ_REL_URL, MQ_URL_URL, MQ_URLINSERT_URL, MQ_KB_STATUS_URL
-logger_name='rag_mq_rel_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+import logging
 
+logger = logging.getLogger(__name__)
 
 def update_doc_status(doc_id, status, meta_datas = [], api_url=MQ_REL_URL):
     """

@@ -9,9 +9,9 @@ import (
 )
 
 func registerOauth(apiV1 *gin.RouterGroup) {
-	mid.Sub("oauth").Reg(apiV1, "/oauth/app", http.MethodPost, v1.CreateOauthApp, "创建OAuth应用")
-	mid.Sub("oauth").Reg(apiV1, "/oauth/app", http.MethodDelete, v1.DeleteOauthApp, "删除OAuth应用")
-	mid.Sub("oauth").Reg(apiV1, "/oauth/app", http.MethodPut, v1.UpdateOauthApp, "修改OAuth应用信息")
-	mid.Sub("oauth").Reg(apiV1, "/oauth/app/list", http.MethodGet, v1.GetOauthAppList, "获取OAuth应用列表")
-	mid.Sub("oauth").Reg(apiV1, "/oauth/app/status", http.MethodPut, v1.UpdateOauthAppStatus, "更新OAuth应用状态")
+	mid.Sub("operation.oauth").Reg(apiV1, "/oauth/app", http.MethodPost, v1.CreateOauthApp, "创建OAuth应用")
+	mid.Sub("operation.oauth").Reg(apiV1, "/oauth/app", http.MethodDelete, v1.DeleteOauthApp, "删除OAuth应用")
+	mid.Sub("operation.oauth").Reg(apiV1, "/oauth/app", http.MethodPut, v1.UpdateOauthApp, "修改OAuth应用信息")
+	mid.Sub("operation.oauth").Reg(apiV1, "/oauth/app/list", http.MethodGet, v1.GetOauthAppList, "获取OAuth应用列表")
+	mid.Sub("operation.oauth").Reg(apiV1, "/oauth/app/status", http.MethodPut, v1.UpdateOauthAppStatus, "更新OAuth应用状态")
 }

@@ -44,47 +44,19 @@ func errStatus(code errs.Code, status *errs.Status) error {
 
 func (s *Service) ChatRag(req *rag_service.ChatRagReq, stream grpc.ServerStreamingServer[rag_service.ChatRagResp]) error {
 	ctx := stream.Context()
-	// 获取rag详情
-	rag := &model.RagInfo{}
-	switch req.Publish {
-	case RAGPUBLISH:
-		publishRag, err := s.cli.FetchPublishRagFirst(ctx, req.RagId, "")
-		if err != nil {
-			return errStatus(errs.Code_RagChatErr, err)
-		}
-		if publishRag.RagInfo == "" {
-			return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", "ragInfo is empty")
-		}
-		if err := json.Unmarshal([]byte(publishRag.RagInfo), rag); err != nil {
-			return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err.Error())
-		}
-	default:
-		ragInfo, err := s.cli.FetchRagFirst(ctx, req.RagId)
-		if err != nil {
-			return errStatus(errs.Code_RagChatErr, err)
-		}
-		rag = ragInfo
+	//1.查询rag详情
+	rag, err := s.searchRagDetail(ctx, req.RagId, "", req.Publish)
+	if err != nil {
+		return err
 	}
 	log.Infof("get rag: %+v", http_client.Convert2LogString(rag))
-	// 反序列化字符串
-	knowledgeIds, err1 := buildKnowledgeIdList(rag)
-	if err1 != nil {
-		return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err1.Error())
+	//2.查询知识库列表
+	knowledgeInfoList, err := buildKnowledgeList(ctx, rag)
+	if err != nil {
+		return err
 	}
-	knowledgeInfoList, errk := Knowledge.SelectKnowledgeDetailByIdList(ctx, &knowledgebase_service.KnowledgeDetailSelectListReq{
-		UserId:       rag.UserID,
-		OrgId:        rag.OrgID,
-		KnowledgeIds: knowledgeIds,
-	})
-	if errk != nil {
-		log.Errorf("errk = %s", errk.Error())
-		return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", errk.Error())
-	}
-	if knowledgeInfoList == nil || len(knowledgeInfoList.List) == 0 {
-		log.Errorf("knowledgeInfoList = nil")
-		return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", "check knowledgeInfoList err: knowledgeInfoList is nil")
-	}
-	knowledgeIds, qaIds, knowledgeIDToName := splitKnowledgeIdList(knowledgeInfoList)
+	knowledgeIds, qaIds, knowledgeIDToName, enableVison := splitKnowledgeIdList(knowledgeInfoList)
+	//3.构造rag流式问答消息
 	return message_builder.BuildMessage(ctx, &message_builder.RagContext{
 		MessageId:         util.NewID(),
 		Req:               req,
@@ -92,26 +64,8 @@ func (s *Service) ChatRag(req *rag_service.ChatRagReq, stream grpc.ServerStreami
 		KnowledgeIDToName: knowledgeIDToName,
 		KnowledgeIds:      knowledgeIds,
 		QAIds:             qaIds,
+		EnableVision:      enableVison,
 	}, stream)
-	//  请求rag
-	//buildParams, errk := rag_manage_service.BuildChatConsultParams(req, rag, knowledgeInfoList, knowledgeIds)
-	//if errk != nil {
-	//	log.Errorf("errk = %s", errk.Error())
-	//	return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", errk.Error())
-	//}
-	//chatChan, errg := rag_manage_service.RagStreamChat(ctx, rag.UserID, buildParams)
-	//if errg != nil {
-	//	return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", errg.Error())
-	//}
-	//for text := range chatChan {
-	//	resp := &rag_service.ChatRagResp{
-	//		Content: text,
-	//	}
-	//	if err := stream.Send(resp); err != nil {
-	//		return grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err.Error())
-	//	}
-	//}
-	//return nil
 }
 
 func (s *Service) CreateRag(ctx context.Context, in *rag_service.CreateRagReq) (*rag_service.CreateRagResp, error) {
@@ -283,6 +237,9 @@ func (s *Service) UpdateRagConfig(ctx context.Context, in *rag_service.UpdateRag
 			Enable:   in.SensitiveConfig.Enable,
 			TableIds: sensitiveIds,
 		},
+		VisionConfig: model.VisionConfig{
+			PicNum: in.VisionConfig.PicNum,
+		},
 	}); err != nil {
 		return nil, errStatus(errs.Code_RagUpdateErr, err)
 	}
@@ -298,30 +255,15 @@ func (s *Service) DeleteRag(ctx context.Context, in *rag_service.RagDeleteReq) (
 }
 
 func (s *Service) GetRagDetail(ctx context.Context, in *rag_service.RagDetailReq) (*rag_service.RagInfo, error) {
-	switch in.Publish {
-	case RAGDRAFT:
-		info, err := s.cli.GetRag(ctx, in)
-		if err != nil {
-			return nil, errStatus(errs.Code_RagGetErr, err)
-		}
-		return info, nil
-	default:
-		rag, err := s.cli.FetchPublishRagFirst(ctx, in.RagId, in.Version)
-		if err != nil {
-			return nil, errStatus(errs.Code_RagGetErr, err)
-		}
-		log.Infof("publish_rag = %+v", http_client.Convert2LogString(rag))
-		ragInfo := &model.RagInfo{}
-		if err := json.Unmarshal([]byte(rag.RagInfo), ragInfo); err != nil {
-			return &rag_service.RagInfo{}, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err.Error())
-		}
-		log.Infof("ragInfo = %+v", http_client.Convert2LogString(ragInfo))
-		ret, err := orm.BuildRagInfo(ragInfo)
-		if err != nil {
-			return &rag_service.RagInfo{}, errStatus(errs.Code_RagGetErr, err)
-		}
-		return ret, nil
+	detail, err := s.searchRagDetail(ctx, in.RagId, "", in.Publish)
+	if err != nil {
+		return nil, err
 	}
+	ret, errMsg := orm.BuildRagInfo(detail)
+	if errMsg != nil {
+		return &rag_service.RagInfo{}, errStatus(errs.Code_RagGetErr, errMsg)
+	}
+	return ret, nil
 }
 
 func (s *Service) ListRag(ctx context.Context, in *rag_service.RagListReq) (*rag_service.RagListResp, error) {
@@ -366,6 +308,7 @@ func (s *Service) CopyRag(ctx context.Context, in *rag_service.CopyRagReq) (*rag
 		KnowledgeBaseConfig:   info.KnowledgeBaseConfig,
 		QAKnowledgebaseConfig: info.QAKnowledgebaseConfig,
 		SensitiveConfig:       info.SensitiveConfig,
+		VisionConfig:          info.VisionConfig,
 		PublicModel:           info.PublicModel,
 	})
 	if err != nil {
@@ -475,6 +418,53 @@ func (s *Service) GetPublishRagDesc(ctx context.Context, req *rag_service.GetPub
 	}, nil
 }
 
+func (s *Service) searchRagDetail(ctx context.Context, ragId, version string, publish int32) (*model.RagInfo, error) {
+	// 获取rag详情
+	rag := &model.RagInfo{}
+	switch publish {
+	case RAGPUBLISH:
+		publishRag, err := s.cli.FetchPublishRagFirst(ctx, ragId, version)
+		if err != nil {
+			return nil, errStatus(errs.Code_RagChatErr, err)
+		}
+		if publishRag.RagInfo == "" {
+			return nil, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", "ragInfo is empty")
+		}
+		if err := json.Unmarshal([]byte(publishRag.RagInfo), rag); err != nil {
+			return nil, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err.Error())
+		}
+	default:
+		ragInfo, err := s.cli.FetchRagFirst(ctx, ragId)
+		if err != nil {
+			return nil, errStatus(errs.Code_RagChatErr, err)
+		}
+		rag = ragInfo
+	}
+	return rag, nil
+}
+
+func buildKnowledgeList(ctx context.Context, rag *model.RagInfo) (*knowledgebase_service.KnowledgeDetailSelectListResp, error) {
+	// 反序列化字符串
+	knowledgeIds, err := buildKnowledgeIdList(rag)
+	if err != nil {
+		return nil, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err.Error())
+	}
+	knowledgeInfoList, err1 := Knowledge.SelectKnowledgeDetailByIdList(ctx, &knowledgebase_service.KnowledgeDetailSelectListReq{
+		UserId:       rag.UserID,
+		OrgId:        rag.OrgID,
+		KnowledgeIds: knowledgeIds,
+	})
+	if err1 != nil {
+		log.Errorf("SelectKnowledgeDetailByIdList err %s", err1.Error())
+		return nil, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", err1.Error())
+	}
+	if knowledgeInfoList == nil || len(knowledgeInfoList.List) == 0 {
+		log.Errorf("knowledgeInfoList is empty")
+		return nil, grpc_util.ErrorStatusWithKey(errs.Code_RagChatErr, "rag_chat_err", "check knowledgeInfoList err: knowledgeInfoList is nil")
+	}
+	return knowledgeInfoList, nil
+}
+
 func buildKnowledgeIdList(rag *model.RagInfo) ([]string, error) {
 	// 反序列化字符串
 	var knowledgeIds []string
@@ -499,7 +489,7 @@ func buildKnowledgeIdList(rag *model.RagInfo) ([]string, error) {
 }
 
 // 拆分知识库列表
-func splitKnowledgeIdList(knowledgeList *knowledgebase_service.KnowledgeDetailSelectListResp) (knowledgeIds []string, qaIds []string, knowledgeIDToName map[string]string) {
+func splitKnowledgeIdList(knowledgeList *knowledgebase_service.KnowledgeDetailSelectListResp) (knowledgeIds []string, qaIds []string, knowledgeIDToName map[string]string, enableVision bool) {
 	knowledgeIDToName = make(map[string]string)
 	for _, info := range knowledgeList.List {
 		if info.Category == QACategory {
@@ -509,6 +499,9 @@ func splitKnowledgeIdList(knowledgeList *knowledgebase_service.KnowledgeDetailSe
 		}
 		if _, exists := knowledgeIDToName[info.KnowledgeId]; !exists {
 			knowledgeIDToName[info.KnowledgeId] = info.RagName
+		}
+		if info.Category == 2 {
+			enableVision = true
 		}
 	}
 	return

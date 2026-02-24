@@ -20,6 +20,11 @@ func ModelPdfParser(ctx *gin.Context, modelID string, req *mp_common.PdfParserRe
 		gin_util.Response(ctx, nil, err)
 		return
 	}
+	if !modelInfo.IsActive {
+		gin_util.Response(ctx, nil, grpc_util.ErrorStatus(err_code.Code_BFFModelStatus, modelInfo.ModelId))
+		return
+	}
+
 	// pdfParser config
 	pdfParser, err := mp.ToModelConfig(modelInfo.Provider, modelInfo.ModelType, modelInfo.ProviderConfig)
 	if err != nil {

@@ -29,6 +29,27 @@ func ChatDraftRag(ctx *gin.Context) {
 	}
 }
 
+// RagUpload
+//
+//	@Tags		rag
+//	@Summary	文件直接上传到rag
+//	@Description
+//	@Security	JWT
+//	@Accept		json
+//	@Produce	json
+//	@Param		data	body		request.RagUploadParams	true	"RAG上传文档请求参数"
+//	@Success	200		{object}	response.Response{data=response.RagUploadResponse}
+//	@Router		/rag/upload [post]
+func RagUpload(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.RagUploadParams
+	if !gin_util.BindForm(ctx, &req) {
+		return
+	}
+	upload, err := service.RagUpload(ctx, userId, orgId, req)
+	gin_util.Response(ctx, upload, err)
+}
+
 // ChatPublishedRag
 //
 //	@Tags		rag

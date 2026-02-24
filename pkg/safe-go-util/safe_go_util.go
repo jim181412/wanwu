@@ -1,8 +1,9 @@
 package safe_go_util
 
 import (
-	"github.com/UnicomAI/wanwu/pkg/util"
 	"sync"
+
+	"github.com/UnicomAI/wanwu/pkg/util"
 )
 
 func SafeGo(f func()) {

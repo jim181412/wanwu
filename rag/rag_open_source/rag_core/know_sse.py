@@ -7,31 +7,35 @@ from itertools import product
 import shutil
 import requests
 import numpy as np
+import urllib.parse
 from utils.knowledge_base_utils import *
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import ServerSentEvent, EventSourceResponse
-from model_manager import get_model_configure, LlmModelConfig
+from langchain.prompts import PromptTemplate
+from model_manager.model_config import get_model_configure, LlmModelConfig
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from datetime import datetime, timedelta
-from settings import SSE_USE_MONGO, TEMPERATURE, MONGO_URL
+from utils.prompts import PROMPT_TEMPLATE, CITATION_INSTRUCTION
+from settings import (SSE_USE_MONGO, TEMPERATURE, MONGO_URL, REPLACE_MINIO_DOWNLOAD_URL, MINIO_ADDRESS,
+                      TRUNCATE_PROMPT, CONTEXT_LENGTH)
 
-from logging_config import setup_logging
-logger_name='rag_sse'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+from logging_config import init_logging
 
 from pymongo import MongoClient
 from utils import redis_utils
 from utils.constant import CHUNK_SIZE
 import uuid
 import hashlib
+import tiktoken
+from openai import OpenAI
 user_data_path = r'./user_data'
 app = FastAPI()
+init_logging()
+logger = logging.getLogger(__name__)
 # 解决跨域问题
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +49,10 @@ client = MongoClient(MONGO_URL, 0, connectTimeoutMS=5000, serverSelectionTimeout
 
 collection = client['rag']['rag_user_logs']
 redis_client = redis_utils.get_redis_connection()
+
+tiktoken_cache_dir = "/opt/tiktoken_cache"
+os.environ["TIKTOKEN_CACHE_DIR"] = tiktoken_cache_dir
+encoding = tiktoken.encoding_for_model("gpt-4")
 
 def get_query_dict_cache(redis_client, user_id, knowledgebases):
     """
@@ -111,40 +119,229 @@ def query_rewrite(question, term_dict):
     return rewritten_questions
 
 
+def get_prompt(question: str,
+               search_list: list,
+               default_answer: str,
+               auto_citation: bool,
+               prompt_template: str = "",
+               context_size: int = CONTEXT_LENGTH,
+               max_tokens: int = 4096):
+    citation = CITATION_INSTRUCTION if auto_citation else ""
+    if auto_citation and default_answer:
+        default_answer_text = "请仅基于提供的参考信息中上下文提供答案。如果提供的参考信息中的所有上下文对回答问题均无帮助，请直接输出:%s" % default_answer
+    else:
+        default_answer_text = ""
+
+    # 构造一个没有 context 的模板来估算剩余空间
+    template_to_use = prompt_template if (
+                len(prompt_template) > 0 and "{question}" in prompt_template) else PROMPT_TEMPLATE
+
+    # 估算除了 {context} 以外占用的 token
+    base_prompt_without_context = template_to_use.replace("{context}", "")
+    # 填充实际变量（不含 context）
+    base_filled = base_prompt_without_context.format(
+        question=question,
+        citation=citation,
+        default_answer=default_answer_text
+    )
+
+    base_tokens = len(encoding.encode(base_filled))
+    available_tokens_for_context = context_size - base_tokens - max_tokens - 50  # 预留50个token缓冲
+
+    # 处理并截取 context
+    valid_search_list = []
+    res_search_list = []  # 返回的 res_search_list
+    current_context_tokens = 0
+
+    for i, x in enumerate(search_list):
+        snippet = x['snippet']
+        item_text = f"\n【{i + 1}^】\n{snippet}" if auto_citation else snippet
+        item_tokens = len(encoding.encode(item_text))
+
+        if current_context_tokens + item_tokens <= available_tokens_for_context:
+            valid_search_list.append(item_text)
+            res_search_list.append(x)
+            current_context_tokens += item_tokens
+        else:
+            # 计算剩余可用的空位
+            remaining_tokens = available_tokens_for_context - current_context_tokens
+
+            if remaining_tokens > 0:
+                # 将 item_text 编码，截取前 N 个 token，再解码回文本
+                tokens = encoding.encode(item_text)
+                truncated_tokens = tokens[:remaining_tokens]
+                truncated_text = encoding.decode(truncated_tokens) + "..."  # 添加省略号提示
+
+                valid_search_list.append(truncated_text)
+                res_search_list.append(x)
+                current_context_tokens += remaining_tokens
+
+            break
+
+    context = "\n".join(valid_search_list)
+
+    formatted_prompt = PromptTemplate(
+        template=template_to_use,
+        input_variables=["citation", "default_answer", "question", "context"] if "{citation}" in template_to_use else [
+            "question", "context"]
+    )
+
+    render_kwargs = {"question": question, "context": context}
+    if "{citation}" in template_to_use:
+        render_kwargs.update({"citation": citation, "default_answer": default_answer_text})
+
+    return formatted_prompt.format(**render_kwargs), res_search_list
+
+
+def calculate_multimodal_tokens(content_list):
+    total_tokens = 0
+    for item in content_list:
+        if item["type"] == "text":
+            total_tokens += len(encoding.encode(item["text"]))
+        elif item["type"] == "image_url":
+            # 这是一个经验预估值：
+            # GPT-4o 低分辨率模式一张图 85 tokens
+            # 高分辨率通常 170 - 765+ tokens
+            total_tokens += 170
+    return total_tokens
+
+
 @app.post("/rag/knowledge/stream/search")
 async def search(request: Request):
-    headers = {
-        "Content-Type": "application/json"
-    }
     prompt = ''
     history = []
-    search_list = []
-    async def stream_generate(prompt, history, search_list,question,top_p,repetition_penalty,temperature,custom_model_info,do_sample,score,msg_id):
 
-        answer = ''
+    async def send_request(llm_url:str, api_key: str, llm_data: dict, valid_search_list:list):
         start_time = time.time()
-        # llm_url = custom_model_info["model_url"]
-        # model_name = custom_model_info["model_name"]
-        model_id = custom_model_info["llm_model_id"]
-        llm_config = get_model_configure(model_id)
+        waitting_response = ""
+        answer = ""
+        first_output = True
+        finish = 0
+        current_stream_data = None
+        output_str = ""
+        try:
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            response = requests.post(llm_url, json=llm_data, headers=headers, verify=False, stream=True)
+            logger.info(f'{llm_url} ====== 大模型开始流式输出，发送到大模型参数：' + repr(llm_data))
+            response.raise_for_status()
+            if response.status_code != 200:
+                # 尝试读取一点错误信息
+                error_text = response.text[:200] if response.text else "No content"
+                raise Exception(f"HTTP Error {response.status_code}: {error_text}")
+
+            has_stream_data = False
+            for line in response.iter_lines(decode_unicode=True):
+                has_stream_data = True
+                current_stream_data = line
+                # logger.info(f"raw stream data: {line}") # 调试用
+                if not line: continue
+
+                if line.startswith("data:"):
+                    # 过滤掉 "data:"
+                    line = line[5:]
+                # 过滤掉 [DONE] 标记
+                if line.strip() == "[DONE]":
+                    continue
+
+                datajson = json.loads(line)
+
+                # 优先检查上游错误码 (防御 code:110000 且 data:None 的情况)
+                if datajson.get("code") and datajson.get("code") != 0:
+                    raise RuntimeError(f"Upstream model error: {datajson.get('msg')}")
+
+                if "choices" in datajson:
+                    # 标准格式
+                    choices = datajson.get("choices", [{}])
+                    content = choices[0].get("delta", {}).get("content", "")
+                else:
+                    # 嵌套格式 (data: { choices: ... })
+                    # 必须先判断 data 是否为字典，防止 'data': None 导致崩溃
+                    data_obj = datajson.get("data")
+                    if not isinstance(data_obj, dict):
+                        raise ValueError(f"Invalid data structure: 'data' field is not a dictionary. Got: {type(data_obj)}")
+
+                    choices = data_obj.get("choices", [{}])
+                    content = choices[0].get("message", {}).get("content", "")
+
+                finish_reason = choices[0].get("finish_reason", "")
+                if finish_reason == "stop":
+                    finish = 1
+                elif finish_reason == "sensitive_cancel":
+                    finish = 4
+                else:
+                    finish = 0
+
+                answer += content
+                waitting_response += content
+                history_tmp = history.copy()
+                history_tmp.append({
+                    "query": question,
+                    "response": answer,
+                    "needHistory": True
+                })
+                response_info = {
+                    'code': 0,
+                    "message": "success",
+                    "msg_id": msg_id,
+                    "data": {"output": content,
+                             "searchList": valid_search_list,
+                             },
+                    "history": history_tmp,
+                    "finish": finish
+                }
+                if score != -1:  # 如果允许返回得分
+                    response_info["data"]["score"] = score
+                output_str = json.dumps(response_info, ensure_ascii=False)
+                yield output_str
+                if first_output:
+                    end_time = time.time()
+                    logger.info(f"question:{question}。开始流式第一个词返回时间：{end_time - start_time}秒")
+                    first_output = False
+
+            if not has_stream_data:
+                raise Exception("Response body is empty (No stream data received).")
+
+        except Exception as e:  # 如果发生异常，返回错误信息
+            logger.error(f"LLM Error url:{llm_url}, current parsed stream data: {current_stream_data}, err: {e}")
+            if finish not in [1, 4]:  # 如果模型没有停止输出，则返回错误信息
+                response_info = {
+                    'code': 1,
+                    "message": f"LLM Error:{str(e)}",
+                }
+                output_str = json.dumps(response_info, ensure_ascii=False)
+                yield output_str
+
+        end_time = time.time()
+        logger.info(f"question:{question}。流式最后一个词返回时间：{end_time - start_time}秒,返回json:{output_str}")
+
+    async def stream_generate(prompt, history, search_list, question, top_p, repetition_penalty, temperature,
+                              custom_model_info, do_sample, score, msg_id, llm_config):
         model_name = llm_config.model_name
-        llm_url = ""
-        api_key = ""
         if isinstance(llm_config, LlmModelConfig):
             llm_url = llm_config.endpoint_url + "/chat/completions"
             api_key = llm_config.api_key
+            context_size = llm_config.context_size
+            max_tokens = llm_config.max_tokens
+        else:
+            raise ValueError(f"{model_name} is not llm model")
 
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
         messages = []
+        available_tokens_for_context = context_size - max_tokens - 50 # 50 for buffer
+        prompt, valid_search_list = get_prompt(question, search_list, default_answer, auto_citation, prompt_template,
+                                               context_size, max_tokens)
+        num_tokens = len(encoding.encode(prompt))
+
         for item in history:
+            num_tokens += len(encoding.encode(item["query"]))
+            num_tokens += len(encoding.encode(item["response"]))
+            if num_tokens > available_tokens_for_context:
+                break
             messages.append({"role": "user", "content": item["query"]})
             messages.append({"role": "assistant", "content": item["response"]})
         messages.append({"role": "user", "content": prompt})
+
         llm_data = {
             "model": model_name,
-            # "pad_token_id": 0,
-            # "bos_token_id": 1,
-            # "eos_token_id": 2,
             "temperature": temperature,
             # "top_k": 5,
             # "top_p": top_p,
@@ -153,131 +350,93 @@ async def search(request: Request):
             "stream": True,
             "messages": messages,
         }
-        response = requests.post(llm_url, json=llm_data, headers=headers, verify=False, stream=True)
-        logger.info(f'{llm_url} ====== 大模型开始流式输出，发送到大模型参数：'+repr(llm_data))
-        waitting_response = ""
-        time_i = 0
-        finish = 0
-        try:
-            id = 0
-            for line in response.iter_lines(decode_unicode=True):
-                if line.startswith("data:"):
-                    line = line[5:]
-                    datajson = json.loads(line)
-                    yield_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-                    # logger.info(f"{yield_time},{datajson}")
-                    if "choices" in datajson:
-                        #content = datajson["choices"][0]["delta"]["content"]
-                        content = datajson.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                        #if datajson["choices"][0]["finish_reason"] == "stop":  # 如果模型已经停止输出
-                        finish_reason = datajson.get("choices", [{}])[0].get("finish_reason", "")
-                        if finish_reason == "stop":
-                            finish = 1
-                        elif finish_reason == "sensitive_cancel":  # 如果模型已经停止输出
-                            finish = 4
-                        else:
-                            finish = 0
-                    else:
-                        #content = datajson["data"]["choices"][0]["message"]["content"]
-                        content = datajson.get("data", {}).get("choices", [{}])[0].get("message", {}).get("content", "")
-                        #if datajson["data"]["choices"][0]["finish_reason"] == "stop":  # 如果模型已经停止输出
-                        finish_reason = datajson.get("data", {}).get("choices", [{}])[0].get("finish_reason", "")
-                        if finish_reason == "stop":
-                            finish = 1
-                        elif finish_reason == "sensitive_cancel":  # 如果模型已经停止输出
-                            finish = 4
-                        else:
-                            finish = 0
-                    answer += content
-                    waitting_response += content
-                    history_tmp = history.copy()
-                    subjson = {}
-                    subjson["query"] = question
-                    subjson["response"] = answer
-                    subjson["needHistory"] = True
-                    history_tmp.append(subjson)
-                    response_info = {
-                        'code': int(0),
-                        "message": "success",
-                        "msg_id": msg_id,
-                        "data":{"output": content,
-                                "searchList": search_list,
-                            },
-                        "history":history_tmp,
-                        "finish": finish
-                    }
-                    if score != -1:  # 如果允许返回得分
-                        response_info["data"]["score"] = score
-                    jsonarr = json.dumps(response_info, ensure_ascii=False)
-                    id += 1
-                    str_out = f'{jsonarr}'
-                    yield str_out
-                    if time_i == 0:
-                        end_time = time.time()
-                        logger.info(f"question:{question}。开始流式第一个词返回时间：{end_time - start_time}秒")
-                        time_i += 1
-                else:  # 适配 openai 的返回格式
-                    try:
-                        datajson = json.loads(line)
-                        if "choices" in datajson:
-                            #content = datajson["choices"][0]["delta"]["content"]
-                            content = datajson.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                            if datajson["choices"][0]["finish_reason"] == "stop":  # 如果模型已经停止输出
-                                finish = 1
-                            elif datajson["choices"][0]["finish_reason"] == "sensitive_cancel":  # 敏感词
-                                finish = 4
-                            else:
-                                finish = 0
-                        else:
-                            #content = datajson["data"]["choices"][0]["message"]["content"]
-                            content = datajson.get("data", {}).get("choices", [{}])[0].get("message", {}).get("content", "")
-                            if datajson["data"]["choices"][0]["finish_reason"] == "stop":  # 如果模型已经停止输出
-                                finish = 1
-                            elif datajson["data"]["choices"][0]["finish_reason"] == "sensitive_cancel":  # 敏感词
-                                finish = 4
-                            else:
-                                finish = 0
-                        answer += content
-                        waitting_response += content
-                        history_tmp = history.copy()
-                        subjson = {}
-                        subjson["query"] = question
-                        subjson["response"] = answer
-                        subjson["needHistory"] = True
-                        history_tmp.append(subjson)
-                        response_info = {
-                            'code': int(0),
-                            "message": "success",
-                            "msg_id": msg_id,
-                            "data": {"output": content,
-                                     "searchList": search_list,
-                                     },
-                            "history": history_tmp,
-                            "finish": finish
-                        }
-                        if score != -1:  # 如果允许返回得分
-                            response_info["data"]["score"] = score
-                        jsonarr = json.dumps(response_info, ensure_ascii=False)
-                        id += 1
-                        str_out = f'{jsonarr}'
-                        yield str_out
-                        if time_i == 0:
-                            end_time = time.time()
-                            logger.info(f"question:{question}。开始流式第一个词返回时间：{end_time - start_time}秒")
-                            time_i += 1
-                    except Exception as e:
-                        pass
-        except Exception as e:  # 如果发生异常，返回错误信息
-            logger.error(f"LLM Error url:{llm_url}, err: {e}")
-            if finish not in [1, 4]:  # 如果模型没有停止输出，则返回错误信息
-                response_info = {
-                    'code': 1,
-                    "message": f"LLM Error:{e}",
-                }
-                yield json.dumps(response_info, ensure_ascii=False)
-        # ========== 最终流式返回完成后 动作 ===========
-        end_time = time.time()
-        logger.info(f"question:{question}。流式最后一个词返回时间：{end_time - start_time}秒,返回json:{jsonarr}")
+        logger.info(f"llm_url:{llm_url},发送到大模型参数：{llm_data}")
+        return send_request(llm_url, api_key, llm_data, valid_search_list)
+
+
+    async def multimodal_stream_generate(prompt, history, search_list, question, top_p, repetition_penalty, temperature,
+                              custom_model_info, do_sample, score, msg_id, attachment_files, llm_config):
+        model_name = llm_config.model_name
+        if isinstance(llm_config, LlmModelConfig):
+            llm_url = llm_config.endpoint_url + "/chat/completions"
+            api_key = llm_config.api_key
+            context_size = llm_config.context_size
+            max_tokens = llm_config.max_tokens
+        else:
+            raise ValueError(f"{model_name} is not llm model")
+
+        if not llm_config.is_vision_support:
+            logger.info(" llm is not support vision,multimodal_model_id:%s" % model_id)
+            raise Exception(" llm is not support vision,multimodal_model_id:%s" % model_id)
+        # ============== 开始组装 messages ==============
+        num_tokens = 0
+        prompt_content = []
+        available_tokens_for_context = context_size - max_tokens - 50  # 50 for buffer
+        # === 多模态问答提示词构建
+        citation = CITATION_INSTRUCTION if auto_citation else ""
+        content_item = {"type": "text", "text": f"你是一个问答助手，主要任务是汇总参考信息回答用户问题, 请只根据参考信息中提供的上下文信息回答用户问题。 {citation}"}
+        prompt_content.append(content_item)
+        content_item = {"type": "text", "text": f"用户问题：{question}"}
+        prompt_content.append(content_item)
+        num_tokens += calculate_multimodal_tokens([content_item])
+        if attachment_files:
+            content_items = [
+                {"type": "text", "text": "用户问题上传的照片："},
+                {"type": "image_url", "image_url": {"url": attachment_files[0]["image"]}},
+            ]
+            prompt_content.extend(content_items)
+        prompt_content.append({"type": "text", "text": "\n参考信息：```\n"})
+        num_tokens += calculate_multimodal_tokens(prompt_content)
+        end_content_item = {"type": "text", "text": "请根据参考信息回答用户问题，请严格按照以下要求输出：\n1. **参考信息中提及图片链接情况的输出要求**：若参考信息提及图片链接且链接格式符合markdown语法规范：“![图片标题](图片链接)” 。请按此链接格式将相关图像内容附加输出，注意确保图片链接格式完整不被截断。若参考信息未提及图片链接则忽略此规则并注意不要随意捏造图片链接，在答案输出中不要体现此条指令信息的任何内容。\n2. **输出语言要求**：必须使用与问题相同的语言回答用户的问题。\n"}
+        num_tokens += calculate_multimodal_tokens([end_content_item])
+        valid_search_list = []
+        for i, item in enumerate(search_list):
+            content_items = [
+                {"type": "text", "text": f"\n【{i + 1}^】\n"},
+                {"type": "text", "text": f"{item['snippet']}\n"}
+            ]
+            for rerank_i in item["rerank_info"]:
+                if rerank_i["type"] == "image":
+                    file_url = rerank_i['file_url']
+                    if not file_url.startswith(f"http://{MINIO_ADDRESS}"):
+                        suffix = file_url.replace(REPLACE_MINIO_DOWNLOAD_URL, "").lstrip("/")
+                        file_url = f"http://{MINIO_ADDRESS}/{suffix}"
+                    content_items.append({"type": "text", "text": f"\n此 {rerank_i['file_url']} 的图片是:"})
+                    content_items.append({"type": "image_url", "image_url": {"url":file_url}})
+            # 计算上下文取舍
+            num_tokens += calculate_multimodal_tokens(content_items)
+            if num_tokens > available_tokens_for_context:
+                break
+            prompt_content.extend(content_items)
+            valid_search_list.append(item)
+        prompt_content.append({"type": "text", "text": "\n```\n"})  # 添加好参考信息分界
+        prompt_content.append(end_content_item)
+        # ===== 多模态提示词构建完成
+        messages = []
+        for item in history:
+            content_items =[
+                {"role": "user", "content": item["query"]},
+                {"role": "assistant", "content": item["response"]}
+            ]
+            num_tokens += calculate_multimodal_tokens(content_items)
+            if num_tokens > available_tokens_for_context:
+                break
+            messages.extend(content_items)
+        messages.append({"role": "user", "content": prompt_content})
+
+        llm_data = {
+            "model": model_name,
+            "temperature": temperature,
+            "top_p": top_p,
+            "repetition_penalty": repetition_penalty,
+            "do_sample": do_sample,
+            "stream": True,
+            "messages": messages,
+        }
+
+        logger.info(f"llm_url: {llm_url}, 发送到大模型参数：{llm_data}, temperature:{temperature}")
+        return send_request(llm_url, api_key, llm_data, valid_search_list)
+
     async def no_search_list(return_answer, history, question, code, msg, score, msg_id):
         answer = ''
         for char in return_answer:
@@ -339,6 +498,8 @@ async def search(request: Request):
     # user_id = request.headers.get("X-uid")
     # kb_name = json_request["knowledgeBase"]
     knowledge_base_info = json_request.get("knowledge_base_info", {})
+    enable_vision = json_request.get("enable_vision", False)
+    attachment_files = json_request.get("attachment_files", [])
     question = json_request["question"]
     rate = float(json_request["threshold"])
     top_k = int(json_request["topK"])
@@ -383,6 +544,24 @@ async def search(request: Request):
     metadata_filtering_conditions = json_request.get("metadata_filtering_conditions", [])
     if not metadata_filtering:
         metadata_filtering_conditions = []
+
+    filter_attachment_files = []
+    for item in attachment_files:
+        file_type = item.get("file_type")
+        if file_type == "image":
+            file_url = item["file_url"]
+            parsed_url = urllib.parse.urlparse(file_url)
+            # 校验 URL 是否包含协议头和网络位置
+            if not all([parsed_url.scheme, parsed_url.netloc]):
+                raise ValueError(f"Invalid attachment file URL: {file_url}")
+            filter_attachment_files.append({"image": file_url})
+        else:
+            raise ValueError(f"attachment_file type {file_type} not support")
+    if len(filter_attachment_files) > 1:
+        raise ValueError("Multiple attachment files are not supported.")
+    attachment_files = filter_attachment_files
+    if not question or len(str(question).strip()) <= 0:
+        raise ValueError("question cannot be empty")
 
     logger.info('---------------流式查询---------------')
     logger.info('knowledge_base_info:'+repr(knowledge_base_info)+'\t'+repr(json_request))
@@ -481,7 +660,8 @@ async def search(request: Request):
                                                                rerank_model_id=rerank_model_id, rerank_mod=rerank_mod,
                                                                weights=weights,
                                                                metadata_filtering_conditions=metadata_filtering_conditions,
-                                                               use_graph=use_graph
+                                                               use_graph=use_graph, enable_vision=enable_vision,
+                                                               attachment_files=attachment_files,
                                                                )
             else:
                 rerank_result = get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk_conent,
@@ -490,7 +670,8 @@ async def search(request: Request):
                                                            rerank_model_id=rerank_model_id, rerank_mod=rerank_mod,
                                                            weights=weights,
                                                            metadata_filtering_conditions=metadata_filtering_conditions,
-                                                           use_graph=use_graph
+                                                           use_graph=use_graph, enable_vision=enable_vision,
+                                                           attachment_files=attachment_files,
                                                            )
 
             logger.info("===>data_flywheel=%s,has_effective_cache=%s,rerank_result=%s" % (data_flywheel,has_effective_cache,json.dumps(rerank_result, ensure_ascii=False)))
@@ -585,7 +766,14 @@ async def search(request: Request):
                 return EventSourceResponse(no_search_list(default_answer,history,question,response_info['code'],response_info['message'], score, msg_id))
             # 需要大模型输出
             if len(search_list)>0 or chichat:
-                return EventSourceResponse(stream_generate(prompt, history, search_list,question,top_p,repetition_penalty,temperature,custom_model_info,do_sample,score,msg_id))
+                model_id = custom_model_info["llm_model_id"]
+                llm_config = get_model_configure(model_id)
+                if llm_config.is_multimodal:
+                    gen = await multimodal_stream_generate(prompt, history, search_list,question,top_p,repetition_penalty,temperature,custom_model_info,do_sample,score,msg_id,attachment_files,llm_config)
+                    return EventSourceResponse(gen)
+                else:
+                    gen = await stream_generate(prompt, history, search_list,question,top_p,repetition_penalty,temperature,custom_model_info,do_sample,score,msg_id,llm_config)
+                    return EventSourceResponse(gen)
              # 知识召回为空，并且使用兜底话术返回，不需要大模型输出
             else:
                 return EventSourceResponse(no_search_list(default_answer,history,question,0,'success', score, msg_id))

@@ -22,17 +22,6 @@ import base64
 from datetime import datetime, timedelta
 from enum import Enum
 
-import nltk
-# 设置NLTK数据路径
-# 获取当前文件的绝对路径
-current_file_path = os.path.abspath(__file__)
-# 获取当前文件所在的目录
-current_dir = os.path.dirname(current_file_path)
-# 拼接nltk_data文件夹的路径
-nltk_data_path = os.path.join(current_dir, 'nltk_data')
-nltk.data.path.append(nltk_data_path)
-nltk.data.path.append("/opt/nltk_data")
-
 # 验证设置是否成功
 from utils import milvus_utils
 from utils import es_utils
@@ -44,16 +33,13 @@ from utils import graph_utils
 from utils import timing
 import time
 
-from logging_config import setup_logging
 from settings import REPLACE_MINIO_DOWNLOAD_URL
 from settings import USE_POST_FILTER
 from settings import GRAPH_SERVER_URL
 from utils.constant import USER_DATA_PATH
+from model_manager.model_config import get_model_configure
 
-logger_name = 'rag_kb_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
+logger = logging.getLogger(__name__)
 
 user_data_path = Path(USER_DATA_PATH)
 chunk_label_redis_client = redis_utils.get_redis_connection(redis_db=5)
@@ -69,49 +55,65 @@ def is_safe_filename(name: str) -> bool:
 
 # -----------------
 # 初始化知识库
-def init_knowledge_base(user_id, kb_name, kb_id="", embedding_model_id="", enable_knowledge_graph = False):
+def init_knowledge_base(user_id: str,
+                        kb_name: str,
+                        kb_id: str = "",
+                        embedding_model_id: str = "",
+                        enable_knowledge_graph: bool = False,
+                        is_multimodal: bool = False) -> dict:
+    """
+    初始化知识库
+
+    :param user_id: 用户ID
+    :param kb_name: 知识库名称
+    :param kb_id: 知识库ID (可选)
+    :param embedding_model_id: 嵌入模型ID (可选)
+    :param enable_knowledge_graph: 是否启用知识图谱 (默认 False)
+    :param is_multimodal: 是否多模态知识库 (默认 False)
+    :return: 操作结果字典，包含 'code' 和 'message'
+    """
     response_info = {'code': 0, "message": "成功"}
-    # ----------------1、检测向量库名称是否合法
-    kb_is_legal = is_valid_string(user_id + kb_name)
-    if not kb_is_legal:
-        response_info['code'] = 1
-        response_info['message'] = '知识库名称仅能包括大小写英文、数字、中文和_符号'
-        logger.error('向量库命名不符合规范')
+    try:
+        # ----------------0、参数校验
+        if is_multimodal and not get_model_configure(embedding_model_id).is_multimodal:
+                raise ValueError("multimodal model is needed for initializing multimodal knowledge base")
+        # ----------------1、检测向量库名称是否合法
+        if not is_valid_string(user_id + kb_name):
+            raise ValueError(f'知识库名称仅能包括大小写英文、数字、中文和_符号, input: {kb_name}')
+        # ----------------2、check 向量库 是否有重复的
+        milvus_data = list_knowledge_base(user_id)
+        logger.info(f'向量库已有知识库查询结果：{milvus_data}')
+        if milvus_data['code'] != 0:
+            raise RuntimeError(f'向量库校验失败, details: {milvus_data["message"]}')
+        if kb_name in milvus_data['data']['knowledge_base_names']:
+            raise ValueError('已存在相同名字的向量知识库')
+        # ----------------2、建立向量库
+        milvus_init_result = milvus_utils.init_knowledge_base(user_id, kb_name,
+                                                              kb_id = kb_id,
+                                                              embedding_model_id = embedding_model_id,
+                                                              enable_knowledge_graph = enable_knowledge_graph,
+                                                              is_multimodal=is_multimodal)
+        logger.info(f'向量库初始化结果：{milvus_init_result}')
+        if milvus_init_result['code'] != 0:
+            raise RuntimeError(milvus_init_result['message'])
+        # ----------------3、建立路径
+        if not os.path.exists(os.path.join(user_data_path, user_id)):
+            os.mkdir(os.path.join(user_data_path, user_id))
+        if os.path.exists(os.path.join(user_data_path, user_id, kb_name)):
+            shutil.rmtree(os.path.join(user_data_path, user_id, kb_name))
+        if not os.path.exists(os.path.join(user_data_path, user_id, kb_name)):
+            os.mkdir(os.path.join(user_data_path, user_id, kb_name))
         return response_info
-    # ----------------2、check 向量库 是否有重复的
-    milvus_data = list_knowledge_base(user_id)
-    logger.info('向量库已有知识库查询结果：')
-    logger.info(repr(milvus_data))
-
-    if milvus_data['code'] != 0:
-        response_info['code'] = 1
-        response_info['message'] = '向量库校验失败'
+    except ValueError as e:
+        logger.warning(f'参数错误: {e}')
+        response_info["code"] = 1
+        response_info["message"] = repr(e)
         return response_info
-    if kb_name in milvus_data['data']['knowledge_base_names']:
-        response_info['code'] = 1
-        response_info['message'] = '已存在相同名字的向量知识库'
+    except Exception as e:
+        logger.error(f'初始化运行错误: {e}')
+        response_info["code"] = 1
+        response_info["message"] = repr(e)
         return response_info
-    # ----------------2、建立向量库
-    milvus_init_result = milvus_utils.init_knowledge_base(user_id, kb_name,
-                                                          kb_id = kb_id,
-                                                          embedding_model_id = embedding_model_id,
-                                                          enable_knowledge_graph = enable_knowledge_graph)
-    logger.info('向量库初始化结果：')
-    logger.info(repr(milvus_init_result))
-
-    if milvus_init_result['code'] != 0:
-        response_info['code'] = 1
-        response_info['message'] = milvus_init_result['message']
-        return response_info
-
-    # ----------------3、建立路径
-    if not os.path.exists(os.path.join(user_data_path, user_id)):
-        os.mkdir(os.path.join(user_data_path, user_id))
-    if os.path.exists(os.path.join(user_data_path, user_id, kb_name)):
-        shutil.rmtree(os.path.join(user_data_path, user_id, kb_name))
-    if not os.path.exists(os.path.join(user_data_path, user_id, kb_name)):
-        os.mkdir(os.path.join(user_data_path, user_id, kb_name))
-    return response_info
 
 
 # -----------------
@@ -359,7 +361,9 @@ def add_files(user_id, kb_name, files, sentence_size, overlap_size, chunk_type, 
             chunk_type=chunk_type,
             separators=separators,
             parser_choices=parser_choices,
-            ocr_model_id=ocr_model_id
+            ocr_model_id=ocr_model_id,
+            asr_model_id = "",
+            multimodal_model_id = ""
         )
         sub_chunk, chunks = file_utils.split_text_file(add_file_path, download_link, split_config)
 
@@ -531,8 +535,8 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
                                prompt_template='', search_field='content', default_answer='根据已知信息，无法回答您的问题。',
                                auto_citation=False, retrieve_method="hybrid_search",
                                filter_file_name_list=[], rerank_model_id='', rerank_mod="rerank_model",
-                               weights: Optional[dict] | None = None,
-                               metadata_filtering_conditions=[], use_graph=False):
+                               weights: Optional[dict] | None = None, metadata_filtering_conditions=[], use_graph=False,
+                               enable_vision=False, attachment_files=[]):
     """ knowledge_base_info: {"user_id1": [{ "kb_id": "","kb_name": ""}, { "kb_id": "","kb_name": ""}]}"""
     response_info = {'code': 0, "message": "成功", "data": {"prompt": "", "searchList": [], "score": []}}
     try:
@@ -550,6 +554,7 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
         vector_text_search_list = []
         label_useful_list = []  # 后过滤有效的知识片段
         graph_data_list = []  # SPO及社区报告置顶片段
+        file_search_list = []
         for user_id, base_info_list in knowledge_base_info.items():
             temp_duplicate_set = set()
             user_search_list = []
@@ -559,7 +564,8 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
                 search_result = milvus_utils.search_milvus(user_id, kb_names, top_k, question, threshold=rate,
                                                            search_field=search_field, kb_ids=kb_ids,
                                                            filter_file_name_list=filter_file_name_list,
-                                                           metadata_filtering_conditions = metadata_filtering_conditions)
+                                                           metadata_filtering_conditions = metadata_filtering_conditions,
+                                                           enable_vision=enable_vision, attachment_files=attachment_files)
 
                 logger.info(repr(user_id) + repr(kb_names) + repr(question) + '问题向量库查询结果：' + json.dumps(repr(search_result), ensure_ascii=False))
 
@@ -570,7 +576,6 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
                 milvus_search_list = search_result['data']["search_list"]
 
                 for item in milvus_search_list:
-                    if item["content"] in temp_duplicate_set: continue
                     content = {
                         "title": item["file_name"],
                         "snippet": item["content"],
@@ -579,12 +584,21 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
                         "meta_data": item["meta_data"],
                         "user_id": user_id
                     }
+                    check_repeated_text = item["content"]
+                    if enable_vision and "content_type" in item and item["content_type"] == "image":
+                        check_repeated_text = item["embedding_content"]
+                        content["content_type"] = item["content_type"]
+                        content["file_url"] = item["embedding_content"]
+
+                    if check_repeated_text in temp_duplicate_set:
+                        continue
+
                     if "is_parent" in item:
                         content["is_parent"] = item["is_parent"]
                     user_search_list.append(content)
-                    temp_duplicate_set.add(item["content"])
+                    temp_duplicate_set.add(check_repeated_text)
 
-            if retrieve_method in {"full_text_search", "hybrid_search"}:
+            if retrieve_method in {"full_text_search", "hybrid_search"} and question and len(str(question).strip()) > 0:
                 # es召回
                 es_search_list = es_utils.search_es(user_id, kb_names, question, top_k, kb_ids=[],
                                                     filter_file_name_list=filter_file_name_list,
@@ -646,9 +660,13 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
 
             #去重合并
             for item in user_post_search_list:
-                if item["snippet"] in duplicate_set: continue
+                if "content_type" in item and item["content_type"] == "image":
+                    if item["file_url"] in duplicate_set: continue
+                    duplicate_set.add(item["file_url"])
+                else:
+                    if item["snippet"] in duplicate_set: continue
+                    duplicate_set.add(item["snippet"])
                 vector_text_search_list.append(item)
-                duplicate_set.add(item["snippet"])
 
             # ========= 图谱召回---增强关联片段以及三元组以及社区报告 start =========
             if use_graph:  # 如果使用图检索
@@ -673,14 +691,41 @@ def get_knowledge_based_answer(knowledge_base_info, question, rate, top_k, chunk
 
 
         if rerank_mod == "rerank_model":
-            documents = [{"text": item["snippet"]} for item in vector_text_search_list]
-            rerank_result = rerank_utils.get_model_rerank(question, top_k,
-                                                          documents,
-                                                          vector_text_search_list,
-                                                          rerank_model_id)
+            model_config = get_model_configure(rerank_model_id)
+            is_support_multimodal = model_config.is_multimodal
+            documents = []
+            for item in vector_text_search_list:
+                if is_support_multimodal:
+                    if enable_vision and "content_type" in item and item["content_type"] == "image":
+                        documents.append({item["content_type"]: item["file_url"]})
+                    else:
+                        documents.append({"text": item["snippet"]})
+                else:
+                    documents.append(item["snippet"])
+
+            query = question
+            if is_support_multimodal:
+                query = {}
+                if len(str(question).strip()) > 0:
+                    query = {"text": question}
+                if enable_vision and is_support_multimodal and attachment_files:
+                    for item in attachment_files:
+                        query.update(item)
+                    if model_config.provider == "YuanJing":  #rernak供应商剔除 text
+                        query.pop("text", None)
+
+            rerank_result = rerank_utils.model_rerank(query,
+                                                      top_k,
+                                                      documents,
+                                                      vector_text_search_list,
+                                                      rerank_model_id,
+                                                      model_config) # type: ignore
         elif rerank_mod == "weighted_score":
-            rerank_result = es_utils.get_weighted_rerank(question, weights,
-                                                         vector_text_search_list, top_k)
+            if not question:
+                rerank_result = vector_text_search_list
+            else:
+                rerank_result = rerank_utils.get_weighted_rerank(question, weights,
+                                                                 vector_text_search_list, top_k)
         else:
             raise Exception("rerank_mod is not valid")
         if rerank_result["code"] != 0:
@@ -773,46 +818,77 @@ def aggregate_chunks(sorted_scores, sorted_search_list):
             parent_child_map[content_id]["search_list"].append(item)
             parent_child_map[content_id]["score"].append(sorted_scores[index])
         else:
-            parent_items[content_id] = item
+            if content_id not in parent_items:
+                parent_items[content_id] = copy.deepcopy(item)
+                parent_items[content_id]["rerank_info"]= []
+
+            if "content_type" in item and item["content_type"] == "image":
+                parent_items[content_id]["rerank_info"].append({
+                    "type": "image",
+                    "file_url": item["file_url"],
+                    "score": sorted_scores[index]
+                })
+                # reset parent content type, output type only [graph, community_report, text]
+                parent_items[content_id]["content_type"] = "text"
+            else:
+                parent_items[content_id]["rerank_info"].append({
+                    "type": "text",
+                    "content": item["snippet"],
+                    "score": sorted_scores[index]
+                })
+
             if content_id not in parent_score:
                 parent_score[content_id] = sorted_scores[index]
             parent_score[content_id] = max(sorted_scores[index], parent_score[content_id])
 
-    if not parent_child_map:
-        return sorted_scores, sorted_search_list, False
+    has_child = True if parent_child_map else False
 
     # 处理有子片段的父片段
     for content_id, children in parent_child_map.items():
-        if content_id in parent_items:
-            continue
-        # 获取父片段信息
-        kb_name = children["search_list"][0]["kb_name"]
-        user_id = children["search_list"][0]["user_id"]
-        content_response = milvus_utils.get_content_by_ids(user_id, kb_name, [content_id])
-        logger.info(f"获取父分段 content_id: {content_id}, 结果: {content_response}")
-        if content_response['code'] != 0:
-            logger.error(f"获取分段信息失败， user_id: {user_id},kb_name: {kb_name}, content_id: {content_id}")
-            continue
+        if content_id not in parent_items:
+            # 获取父片段信息
+            kb_name = children["search_list"][0]["kb_name"]
+            user_id = children["search_list"][0]["user_id"]
+            content_response = milvus_utils.get_content_by_ids(user_id, kb_name, [content_id])
+            logger.info(f"获取父分段 content_id: {content_id}, 结果: {content_response}")
+            if content_response['code'] != 0:
+                logger.error(f"获取分段信息失败， user_id: {user_id},kb_name: {kb_name}, content_id: {content_id}")
+                continue
 
-        parent_content = content_response["data"]["contents"][0]
+            parent_content = content_response["data"]["contents"][0]
 
-        child_score_list = []
+            child_score_list = []
+            for index, item in enumerate(children["search_list"]):
+                item["child_snippet"] = item["snippet"]
+                child_score_list.append(children["score"][index])
+
+            max_score = max(child_score_list)
+            parent_items[content_id] = {
+                "title": parent_content["file_name"],
+                "snippet": parent_content["content"],
+                "kb_name": parent_content["kb_name"],
+                "content_id": parent_content["content_id"],
+                "meta_data": parent_content["meta_data"],
+                "child_content_list": children["search_list"],
+                "rerank_info": [],
+                "child_score": child_score_list,
+                "score": max_score,
+                "is_parent": True,
+            }
+
         for index, item in enumerate(children["search_list"]):
-            item["child_snippet"] = item["snippet"]
-            child_score_list.append(children["score"][index])
-
-        max_score = max(child_score_list)
-        parent_items[content_id] = {
-            "title": parent_content["file_name"],
-            "snippet": parent_content["content"],
-            "kb_name": parent_content["kb_name"],
-            "content_id": parent_content["content_id"],
-            "meta_data": parent_content["meta_data"],
-            "child_content_list": children["search_list"],
-            "child_score": child_score_list,
-            "score": max_score,
-            "is_parent": True,
-        }
+            if "content_type" in item and item["content_type"] == "image":
+                parent_items[content_id]["rerank_info"].append({
+                    "type": "image",
+                    "file_url": item["file_url"],
+                    "score": sorted_scores[index]
+                })
+            else:
+                parent_items[content_id]["rerank_info"].append({
+                    "type": "text",
+                    "content": item["snippet"],
+                    "score": sorted_scores[index]
+                })
 
         parent_score[content_id] = max_score
 
@@ -821,7 +897,7 @@ def aggregate_chunks(sorted_scores, sorted_search_list):
     sorted_scores_list = [parent_score[item[0]] for item in sorted_parent_items]
     sorted_items_list = [item[1] for item in sorted_parent_items]
 
-    return sorted_scores_list, sorted_items_list, True
+    return sorted_scores_list, sorted_items_list, has_child
 
 
 def is_valid_string(s):

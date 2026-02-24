@@ -664,10 +664,11 @@ func assistantSafetyConvert(ctx *gin.Context, resp *assistant_service.AssistantS
 	}, nil
 }
 
-func ConversationCreate(ctx *gin.Context, userId, orgId string, req request.ConversationCreateRequest) (response.ConversationCreateResp, error) {
+func ConversationCreate(ctx *gin.Context, userId, orgId string, req request.ConversationCreateRequest, conversationType string) (response.ConversationCreateResp, error) {
 	resp, err := assistant.ConversationCreate(ctx.Request.Context(), &assistant_service.ConversationCreateReq{
-		AssistantId: req.AssistantId,
-		Prompt:      req.Prompt,
+		AssistantId:      req.AssistantId,
+		Prompt:           req.Prompt,
+		ConversationType: conversationType,
 		Identity: &assistant_service.Identity{
 			UserId: userId,
 			OrgId:  orgId,
@@ -695,11 +696,59 @@ func ConversationDelete(ctx *gin.Context, userId, orgId string, req request.Conv
 	return nil, nil
 }
 
+func GetDraftConversationIdByAssistantID(ctx *gin.Context, userId, orgId string, req request.ConversationGetListRequest) (*response.ConversationIdResp, error) {
+	resp, err := assistant.GetConversationIdByAssistantId(ctx.Request.Context(), &assistant_service.GetConversationIdByAssistantIdReq{
+		AssistantId:      req.AssistantId,
+		ConversationType: constant.ConversationTypeDraft,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &response.ConversationIdResp{
+		ConversationId: resp.ConversationId,
+	}, nil
+}
+
+func DraftConversationDeleteByAssistantID(ctx *gin.Context, userId, orgId string, req request.ConversationDeleteRequest) (interface{}, error) {
+	// 获取 conversation_id
+	conversationIdResp, err := assistant.GetConversationIdByAssistantId(ctx.Request.Context(), &assistant_service.GetConversationIdByAssistantIdReq{
+		AssistantId:      req.AssistantId,
+		ConversationType: constant.ConversationTypeDraft,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+
+	if conversationIdResp == nil || err != nil {
+		return nil, err
+	}
+
+	// 删除草稿会话
+	_, err = assistant.ConversationDelete(ctx.Request.Context(), &assistant_service.ConversationDeleteReq{
+		ConversationId: conversationIdResp.ConversationId,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 func GetConversationList(ctx *gin.Context, userId, orgId string, req request.ConversationGetListRequest) (response.PageResult, error) {
 	resp, err := assistant.GetConversationList(ctx.Request.Context(), &assistant_service.GetConversationListReq{
-		AssistantId: req.AssistantId,
-		PageSize:    int32(req.PageSize),
-		PageNo:      int32(req.PageNo),
+		AssistantId:      req.AssistantId,
+		ConversationType: constant.ConversationTypePublished,
+		PageSize:         int32(req.PageSize),
+		PageNo:           int32(req.PageNo),
 		Identity: &assistant_service.Identity{
 			UserId: userId,
 		},
@@ -728,33 +777,24 @@ func GetConversationDetailList(ctx *gin.Context, userId, orgId string, req reque
 	var convertedList []response.ConversationDetailInfo
 	for _, item := range resp.Data {
 		convertedItem := response.ConversationDetailInfo{
-			Id:             item.Id,
-			AssistantId:    item.AssistantId,
-			ConversationId: item.ConversationId,
-			Prompt:         item.Prompt,
-			SysPrompt:      item.SysPrompt,
-			Response:       item.Response,
-			QaType:         item.QaType,
-			CreatedBy:      item.CreatedBy,
-			CreatedAt:      item.CreatedAt,
-			UpdatedAt:      item.UpdatedAt,
-			RequestFiles:   transRequestFiles(item.RequestFiles),
-			FileSize:       item.FileSize,
-			FileName:       item.FileName,
+			Id:                  item.Id,
+			AssistantId:         item.AssistantId,
+			ConversationId:      item.ConversationId,
+			Prompt:              item.Prompt,
+			SysPrompt:           item.SysPrompt,
+			Response:            item.Response,
+			QaType:              item.QaType,
+			CreatedBy:           item.CreatedBy,
+			CreatedAt:           item.CreatedAt,
+			UpdatedAt:           item.UpdatedAt,
+			RequestFiles:        transRequestFiles(item.RequestFiles),
+			FileSize:            item.FileSize,
+			FileName:            item.FileName,
+			SubConversationList: buildSubConversationList(item.SubConversationList),
 		}
 
 		// 将SearchList从string转换为interface{}
-		if item.SearchList != "" {
-			var searchList interface{}
-			if err := json.Unmarshal([]byte(item.SearchList), &searchList); err != nil {
-				log.Warnf("解析SearchList失败，使用原始字符串，error: %v, searchList: %s", err, item.SearchList)
-				convertedItem.SearchList = item.SearchList
-			} else {
-				convertedItem.SearchList = searchList
-			}
-		} else {
-			convertedItem.SearchList = nil
-		}
+		convertedItem.SearchList = buildSearchList(item.SearchList)
 
 		convertedList = append(convertedList, convertedItem)
 
@@ -766,6 +806,40 @@ func GetConversationDetailList(ctx *gin.Context, userId, orgId string, req reque
 	}
 
 	return response.PageResult{Total: resp.Total, List: convertedList, PageNo: req.PageNo, PageSize: req.PageSize}, nil
+}
+
+func buildSearchList(searchListStr string) interface{} {
+	// 将SearchList从string转换为interface{}
+	if searchListStr != "" {
+		var searchList interface{}
+		if err := json.Unmarshal([]byte(searchListStr), &searchList); err != nil {
+			log.Warnf("解析SearchList失败，使用原始字符串，error: %v, searchList: %s", err, searchListStr)
+			return searchList
+		} else {
+			return searchListStr
+		}
+	}
+	return nil
+}
+
+func buildSubConversationList(conversationList []*assistant_service.SubConversation) []*response.SubConversation {
+	if len(conversationList) == 0 {
+		return make([]*response.SubConversation, 0)
+	}
+	var subConversationList []*response.SubConversation
+	for _, conversation := range conversationList {
+		subConversationList = append(subConversationList, &response.SubConversation{
+			Response:         conversation.Response,
+			SearchList:       buildSearchList(conversation.SearchList),
+			Id:               conversation.Id,
+			Name:             conversation.Name,
+			Profile:          conversation.Profile,
+			TimeCost:         conversation.TimeCost,
+			Status:           conversation.Status,
+			ConversationType: conversation.ConversationType,
+		})
+	}
+	return subConversationList
 }
 
 func transKnowledgebases2Proto(kbConfig request.AppKnowledgebaseConfig) *assistant_service.AssistantKnowledgeBaseConfig {
@@ -801,6 +875,7 @@ func transKnowledgeParams(paramsList []request.AppKnowledgeBase) []*assistant_se
 			KnowledgeBaseId:      base.ID,
 			KnowledgeBaseName:    base.Name,
 			GraphSwitch:          base.GraphSwitch,
+			Category:             base.Category,
 			MetaDataFilterParams: transKnowledgeMetaParams(base.MetaDataFilterParams),
 		})
 	}
@@ -1056,6 +1131,7 @@ func buildKnowledgeBases(kbInfoList *knowledgeBase_service.KnowledgeDetailSelect
 				Name:                 info.Name,
 				GraphSwitch:          info.GraphSwitch,
 				External:             info.External,
+				Category:             info.Category,
 				MetaDataFilterParams: params,
 			})
 		}

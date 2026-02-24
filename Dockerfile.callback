@@ -1,7 +1,7 @@
 ARG WANWU_ARCH
 
 # 基于已构建的基础镜像
-FROM --platform=linux/$WANWU_ARCH crpi-6pj79y7ddzdpexs8.cn-hangzhou.personal.cr.aliyuncs.com/wanwulite/callback-base:v0.3.6-cabe6925
+FROM --platform=linux/$WANWU_ARCH crpi-6pj79y7ddzdpexs8.cn-hangzhou.personal.cr.aliyuncs.com/wanwulite/callback-base:v0.3.7-5afe09bc
 
 # 工作目录
 WORKDIR /callback
@@ -12,4 +12,4 @@ COPY ./callback .
 EXPOSE 8669
 
 # 使用 gunicorn 启动 Flask（加载 run.py 中的 app）
-CMD ["gunicorn", "-w", "8", "-b", "0.0.0.0:8669", "run:app"]
+CMD ["sh", "start.sh"]

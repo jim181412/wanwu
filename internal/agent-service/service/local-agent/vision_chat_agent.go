@@ -2,16 +2,17 @@ package local_agent
 
 import (
 	"context"
+	"path/filepath"
+
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/config"
 	agent_util "github.com/UnicomAI/wanwu/internal/agent-service/pkg/util"
 	chat_model "github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-flow/chat-model"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/minio-service"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
+	minio_service "github.com/UnicomAI/wanwu/internal/agent-service/service/minio-service"
+	service_model "github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
-	"path/filepath"
 )
 
 type VisionChatAgent struct {

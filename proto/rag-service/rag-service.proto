@@ -48,6 +48,13 @@ message ChatRagReq {
   Identity identity = 3;
   repeated HistoryItem history = 4;
   int32 publish = 5; // 0: 草稿 1: 已发布
+  repeated FileInfo fileInfoList = 6; //上传文档列表
+}
+
+message FileInfo {
+  string fileName = 1; // 文件id
+  int64 fileSize = 2; // 文件大小
+  string fileUrl = 3; // 文件url
 }
 
 message HistoryItem {
@@ -74,6 +81,11 @@ message UpdateRagConfigReq{
   RagKnowledgeBaseConfig knowledgeBaseConfig = 5;         // 知识库配置
   RagQAKnowledgeBaseConfig QAknowledgeBaseConfig = 6; // 问答库配置
   RagSensitiveConfig sensitiveConfig = 7;                 // 安全护栏
+  RagVisionConfig visionConfig = 8; // 视觉配置
+}
+
+message RagVisionConfig{
+  int32 picNum = 1;
 }
 
 message CreateRagReq {
@@ -94,7 +106,8 @@ message RagInfo {
   RagKnowledgeBaseConfig knowledgeBaseConfig = 6;         // 知识库
   RagQAKnowledgeBaseConfig QAknowledgeBaseConfig = 7; // 问答库配置
   RagSensitiveConfig sensitiveConfig = 8; // 安全护栏
-  Identity identity = 9;
+  RagVisionConfig visionConfig = 9; // 视觉配置
+  Identity identity = 10;
 }
 
 message RagDeleteReq {

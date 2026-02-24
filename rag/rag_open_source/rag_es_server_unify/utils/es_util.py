@@ -3,6 +3,7 @@
 import requests
 import uuid
 import warnings
+import json
 
 import utils.mapping_util as es_mapping
 from settings import KBNAME_MAPPING_INDEX, DELETE_BACTH_SIZE
@@ -11,6 +12,7 @@ from utils.config_util import es
 from elasticsearch import helpers
 from utils.util import validate_index_name, generate_md5
 from utils import emb_util
+from model.model_manager import get_model_configure
 
 warnings.filterwarnings("ignore")
 
@@ -331,13 +333,14 @@ def rescore_bm25_score(index_name, query, search_by="snippet", search_list = [])
                         }
                     }
                 ],
-                "must": [
+                "should": [
                     {
                         "match": {
                             search_by: query
                         }
                     }
-                ]
+                ],
+                "minimum_should_match": 0
             }
         },
         "size": len(search_list),  # 指定返回的文档数量
@@ -363,6 +366,8 @@ def rescore_bm25_score(index_name, query, search_by="snippet", search_list = [])
         "scores": scores
     }
 
+    logger.info('rescore_bm25_score search_params: ' + json.dumps(search_body, indent=4, ensure_ascii=False))
+    logger.info('rescore_bm25_score search_results: ' + json.dumps(result_dict, indent=4, ensure_ascii=False))
     return result_dict
 
 def search_data_keyword_recall(index_name, kb_name, keywords, top_k, min_score, search_by="labels",
@@ -535,10 +540,24 @@ def is_field_exist(index_name:str, field_name:str)-> (bool, dict):
 
     return True, properties
 
-def search_data_knn_recall(index_name, kb_names, query, top_k, min_score, filter_file_name_list=[], embedding_model_id=""):
+def search_data_knn_recall(index_name: str,
+                           kb_names: list,
+                           query: str,
+                           top_k: int,
+                           min_score: float,
+                           filter_file_name_list: list = [],
+                           embedding_model_id: str="",
+                           enable_vision: bool = False,
+                           attachment_files: list = []):
     """根据查询检索数据，仅返回分数高于 min_score 的文档，并按分数从高到低排序，支持多知识库"""
-
-    query_vector = emb_util.get_embs([query], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
+    emb_info = get_model_configure(embedding_model_id)
+    if emb_info.is_multimodal:
+        query = {"text": query}
+        for item in attachment_files:
+            query.update(item)
+        query_vector = emb_util.get_multimodal_embs([query], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
+    else:
+        query_vector = emb_util.get_embs([query], embedding_model_id=embedding_model_id)["result"][0]["dense_vec"]
     field_name = f"q_{len(query_vector)}_content_vector"
     # 检查索引映射以确定使用哪个字段
     field_exist, properties = is_field_exist(index_name, field_name)
@@ -559,45 +578,45 @@ def search_data_knn_recall(index_name, kb_names, query, top_k, min_score, filter
         logger.info(f"es 索引 {index_name} 使用向量字段: {field_name} 执行向量检索")
 
     # ============== KNN 通道召回数据 ==========
+    filters = [{"terms": {"kb_name": kb_names}}]
+
     if filter_file_name_list:
-        search_body = {
-            "knn": {
-                "field": field_name,
-                "query_vector": query_vector,
-                "filter": [
-                    {"terms": {"kb_name": kb_names}},
-                    {"terms": {"file_name": filter_file_name_list}},
-                ],
-                "k": 10,
-                "num_candidates": max(50, top_k),
-            },
-            "min_score": min_score,
-            "size": top_k,  # 指定返回的文档数量
-            "sort": [
-                {"_score": {"order": "desc"}}  # 按分数降序排序
-            ],
-            "_source": ["content", "embedding_content", "file_name", "kb_name", "chunk_id", "meta_data", "content_id", "is_parent"],
-            # 指定您希望返回的字段
-        }
-    else:
-        search_body = {
-            "knn": {
-                "field": field_name,
-                "query_vector": query_vector,
-                "filter": [
-                    {"terms": {"kb_name": kb_names}}
-                ],
-                "k": 10,
-                "num_candidates": max(50, top_k),
-            },
-            "min_score": min_score,
-            "size": top_k,  # 指定返回的文档数量
-            "sort": [
-                {"_score": {"order": "desc"}}  # 按分数降序排序
-            ],
-            "_source": ["content", "embedding_content", "file_name", "kb_name", "chunk_id", "meta_data", "content_id", "is_parent"],
-            # 指定您希望返回的字段
-        }
+        filters.append({"terms": {"file_name": filter_file_name_list}})
+
+    if not enable_vision:
+        filters.append({
+            "bool": {
+                "must_not": [
+                    {"term": {"content_type": "image"}}
+                ]
+            }
+        })
+
+    search_body = {
+        "knn": {
+            "field": field_name,
+            "query_vector": query_vector,
+            "filter": filters,
+            "k": 10,
+            "num_candidates": max(50, top_k),
+        },
+        "min_score": min_score,
+        "size": top_k,
+        "sort": [
+            {"_score": {"order": "desc"}}
+        ],
+        "_source": [
+            "content",
+            "embedding_content",
+            "file_name",
+            "kb_name",
+            "chunk_id",
+            "meta_data",
+            "content_id",
+            "is_parent",
+            "content_type"
+        ]
+    }
 
     response = es.search(index=index_name, body=search_body)
 
@@ -1736,7 +1755,16 @@ def get_child_contents(index_name, kb_name, content_id):
                 ]
             }
         },
-        "size": 500  # 增加返回的条数
+        "size": 500,  # 增加返回的条数
+        "_source": {
+            "excludes": [
+                "content_vector",
+                "q_768_content_vector",
+                "q_1024_content_vector",
+                "q_1536_content_vector",
+                "q_2048_content_vector"
+            ]
+        }  # 查询索引时排除embedding数据
     }
     response = es.search(index=index_name, body=query)
     # 遍历搜索结果，填充列表
@@ -1747,6 +1775,8 @@ def get_child_contents(index_name, kb_name, content_id):
         embedding_content = cleaned_hit["embedding_content"]
         cleaned_hit["content"] = embedding_content
         cleaned_hit.pop("embedding_content")
+        if "content_type" in cleaned_hit and cleaned_hit["content_type"] == "image":
+            continue
         result.append(cleaned_hit)
 
     # 获取匹配总数

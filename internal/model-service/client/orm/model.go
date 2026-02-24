@@ -123,8 +123,6 @@ func (c *Client) GetModel(ctx context.Context, tab *model_client.ModelImported) 
 	info := &model_client.ModelImported{}
 	if err := sqlopt.SQLOptions(
 		sqlopt.WithID(tab.ID),
-		sqlopt.WithOrgID(tab.OrgID),
-		sqlopt.WithUserID(tab.UserID),
 	).Apply(c.db).WithContext(ctx).First(info).Error; err != nil {
 		return nil, toErrStatus("model_get_err", err.Error())
 	}
@@ -150,8 +148,7 @@ func (c *Client) GetModelByIds(ctx context.Context, modelIds []uint32) ([]*model
 func (c *Client) ListModels(ctx context.Context, tab *model_client.ModelImported) ([]*model_client.ModelImported, *errs.Status) {
 	var modelInfos []*model_client.ModelImported
 	db := sqlopt.SQLOptions(
-		sqlopt.WithOrgID(tab.OrgID),
-		sqlopt.WithUserID(tab.UserID),
+		sqlopt.WithUserOrgOrPublicScope(tab.UserID, tab.OrgID),
 		sqlopt.WithProvider(tab.Provider),
 		sqlopt.WithModelType(tab.ModelType),
 		sqlopt.LikeDisplayNameOrModel(tab.DisplayName),
@@ -178,8 +175,7 @@ func (c *Client) ListTypeModels(ctx context.Context, tab *model_client.ModelImpo
 		modelTypeOpt = sqlopt.WithModelType(tab.ModelType)
 	}
 	if err := sqlopt.SQLOptions(
-		sqlopt.WithOrgID(tab.OrgID),
-		sqlopt.WithUserID(tab.UserID),
+		sqlopt.WithUserOrgOrPublicScope(tab.UserID, tab.OrgID),
 		modelTypeOpt,
 		sqlopt.WithIsActive(true),
 	).Apply(c.db.WithContext(ctx)).Order("provider DESC").Find(&modelInfos).Error; err != nil {

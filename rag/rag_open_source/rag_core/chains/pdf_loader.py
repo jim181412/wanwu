@@ -17,24 +17,12 @@ import uuid
 
 import sys
 import os
-import nltk
-current_file_path = os.path.abspath(__file__)
-# 获取当前文件所在的目录
-current_dir = os.path.dirname(current_file_path)
-# 拼接nltk_data文件夹的路径
-nltk_data_path = os.path.join(current_dir, 'nltk_data')
-nltk.data.path.append(nltk_data_path)
+import logging
 
 from utils import minio_utils
 from utils import ocr_utils
-from logging_config import setup_logging
-#
-logger_name='rag_pdf_loader'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
-
-
+from settings import IMAGE_MINIMUM_WIDTH, IMAGE_MINIMUM_HEIGHT
+logger = logging.getLogger(__name__)
 
 
 def has_table(page, min_rows=2, min_cols=2):
@@ -767,6 +755,10 @@ class PDFLoader(TextLoader):
             output_file = f"{file_name}.png"
             image_filepath = os.path.join(directory, output_file)
             image.save(image_filepath, "PNG")
+            # 过滤掉小图标文件
+            width, height = image.size
+            if width < IMAGE_MINIMUM_WIDTH or height < IMAGE_MINIMUM_HEIGHT:  # 设置你认为的小图标大小阈值
+                return None  # 返回None表示此图片应被忽略
         return image_filepath
 
     def process_pdf_content(self, content_list, image_dict, image_labels):
@@ -1219,26 +1211,27 @@ class PDFLoader(TextLoader):
 
                                 # 将裁剪后的pdf转换为图像
                                 image_url = self.convert_to_images(image_file_path, directory, image_file_name)
-                                minio_result = minio_utils.upload_local_file(image_url)
-                                if minio_result['code'] == 0:
-                                    image_download_link = minio_result['download_link']
-                                    last_image_url = image_download_link
-                                    image_line_text = image_download_link
-                                    # page_content.append(image_line_text)
-                                    chunk_content.append(image_line_text)
-                                    image_line_formats = []
-                                    image_format = {
-                                        "text": image_download_link,
-                                        "bbox": (element.x0, element.y0, element.x1, element.y1),
-                                        "font_name": '',
-                                        "size": 0
-                                    }
-                                    image_line_formats.append(image_format)
-                                    content_position.append(image_line_formats)
-                                    # page_position.append(image_line_formats)
-                                    if not start_position:
-                                        start_position = {"x0": element.x0, "x1": element.x1, "y0": element.y0, "y1": element.y1}
-                                    end_position = {"x0": element.x0, "x1": element.x1, "y0": element.y0, "y1": element.y1}
+                                if image_url is not None:
+                                    minio_result = minio_utils.upload_local_file(image_url)
+                                    if minio_result['code'] == 0:
+                                        image_download_link = minio_result['download_link']
+                                        last_image_url = image_download_link
+                                        image_line_text = image_download_link
+                                        # page_content.append(image_line_text)
+                                        chunk_content.append(f"![image]({image_line_text})")
+                                        image_line_formats = []
+                                        image_format = {
+                                            "text": image_download_link,
+                                            "bbox": (element.x0, element.y0, element.x1, element.y1),
+                                            "font_name": '',
+                                            "size": 0
+                                        }
+                                        image_line_formats.append(image_format)
+                                        content_position.append(image_line_formats)
+                                        # page_position.append(image_line_formats)
+                                        if not start_position:
+                                            start_position = {"x0": element.x0, "x1": element.x1, "y0": element.y0, "y1": element.y1}
+                                        end_position = {"x0": element.x0, "x1": element.x1, "y0": element.y0, "y1": element.y1}
 
                         if len(chunk_content) == 0:
                             chunk_content = table_page.extract_text()

@@ -1,4 +1,5 @@
 import os
+import logging
 # from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from chains.excel_loader import ExcelLoader
 from chains.pdf_loader import PDFLoader
@@ -6,6 +7,7 @@ from chains.pptx_loader import PPTXLoader
 from chains.image_loader import ImageLoader
 from chains.doc_loader import DOCLoader, DOCXLoader
 from chains.html_loader import HTMLLoader
+from chains.media_loader import MediaLoader
 from chains.markdown_loader import MarkdownLoader
 from langchain_community.document_loaders import UnstructuredFileLoader, TextLoader, CSVLoader
 from utils import model_parser_utils
@@ -19,11 +21,8 @@ from langchain.docstore.document import Document
 
 import chardet
 import xml.etree.ElementTree as ET
-from logging_config import setup_logging
-logger_name = 'rag_local_doc_qa'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+
+logger = logging.getLogger(__name__)
 
 def torch_gc():
     pass
@@ -101,7 +100,7 @@ def extract_text_from_xml(input_xml_path):
 #     return ret_list, [os.path.basename(p) for p in ret_list]
 
 
-def load_file(filepath,separators=['。'],sentence_size=SENTENCE_SIZE, chunk_type='split_by_default',overlap_size=0.2,parser_choices=["text"],ocr_model_id = ""):
+def load_file(filepath,separators=['。'],sentence_size=SENTENCE_SIZE, chunk_type='split_by_default',overlap_size=0.2,parser_choices=["text"],ocr_model_id = "", asr_model_id = "", multimodal_model_id = ""):
     if filepath.lower().endswith(".md"):
         # loader = UnstructuredFileLoader(filepath, mode="elements")
         # docs = loader.load()
@@ -130,8 +129,9 @@ def load_file(filepath,separators=['。'],sentence_size=SENTENCE_SIZE, chunk_typ
             docs = loader.load_and_split(textsplitter)
     elif filepath.lower().endswith((".jpg", ".jpeg", ".png")):
         # loader = UnstructuredPaddleImageLoader(filepath, mode="elements")
-        loader = ImageLoader(file_path=filepath, ocr_model_id = ocr_model_id)
-        textsplitter = ChineseTextSplitter(chunk_type, sentence_size=sentence_size)
+        loader = ImageLoader(file_path=filepath, parser_choices=parser_choices, ocr_model_id=ocr_model_id, multimodal_model_id=multimodal_model_id)
+        textsplitter = ChineseTextSplitter(chunk_type, sentence_size=sentence_size,
+                                           overlap_size=overlap_size, separators=separators)
         docs = loader.load_and_split(text_splitter=textsplitter)
     elif filepath.lower().endswith(".csv"):
         encoding = detect_file_encoding(filepath)
@@ -167,6 +167,11 @@ def load_file(filepath,separators=['。'],sentence_size=SENTENCE_SIZE, chunk_typ
     elif filepath.lower().endswith(".pptx"):
         loader = PPTXLoader(filepath, autodetect_encoding=True)
         textsplitter = ChineseTextSplitter(chunk_type, sentence_size=sentence_size, overlap_size=overlap_size, separators=separators)
+        docs = loader.load_and_split(textsplitter)
+    elif filepath.lower().endswith((".wav", ".mp3", ".aac", ".m4a", ".mp4",  ".mov", ".avi")):
+        loader = MediaLoader(file_path=filepath,parser_choices=parser_choices, asr_model_id=asr_model_id, multimodal_model_id=multimodal_model_id)
+        textsplitter = ChineseTextSplitter(chunk_type, sentence_size=sentence_size, overlap_size=overlap_size,
+                                           separators=['\n'])
         docs = loader.load_and_split(textsplitter)
     else:
         loader = UnstructuredFileLoader(filepath, mode="elements")

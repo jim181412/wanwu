@@ -180,3 +180,12 @@ func WithUuid(uuid string) SQLOption {
 		return db.Where("uuid = ?", uuid)
 	})
 }
+
+func WithConversationType(conversationType string) SQLOption {
+	return funcSQLOption(func(db *gorm.DB) *gorm.DB {
+		if conversationType != "" {
+			return db.Where("conversation_type = ?", conversationType)
+		}
+		return db
+	})
+}

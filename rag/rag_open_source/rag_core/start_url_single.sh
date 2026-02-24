@@ -18,7 +18,7 @@ for PORT in {8613..8613}; do
 
   # 启动应用，并将输出重定向到指定的日志文件，同时在后台运行
   echo "正在启动FastAPI应用，端口号为$PORT..."
-      LOG_FILE=$BASE_LOG_FILE$PORT nohup /root/miniconda3/envs/rag-new/bin/python -u url_single.py --port $PORT  &
+      LOG_FILE=$BASE_LOG_FILE$PORT nohup python -u url_single.py --port $PORT > /dev/null 2>&1 &
       # nohup python -u run.py --port $PORT  >> $LOG_FILE$PORT.log 2>&1 &    
   echo "应用启动成功，日志文件为./logs/$BASE_LOG_FILE$PORT.log。"
 done

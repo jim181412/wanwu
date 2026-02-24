@@ -3,13 +3,11 @@ import os
 import json
 import time
 import datetime
-from logging_config import setup_logging
-logger_name='rag_kafka_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+import logging
+
 from settings import FLYWHEEL_KAFKA_TOPIC, KAFKA_BOOTSTRAP_SERVERS
 
+logger = logging.getLogger(__name__)
 
 def create_kafka_producer(bootstrap_servers):
     producer = KafkaProducer(

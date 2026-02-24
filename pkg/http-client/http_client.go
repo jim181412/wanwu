@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	http_client "github.com/UnicomAI/wanwu/internal/rag-service/pkg/http-client"
 	"io"
 	"mime/multipart"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	http_client "github.com/UnicomAI/wanwu/internal/rag-service/pkg/http-client"
 	"github.com/UnicomAI/wanwu/pkg/log"
 )
 

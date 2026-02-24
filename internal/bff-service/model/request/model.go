@@ -29,6 +29,7 @@ type ListModelsRequest struct {
 	Provider    string `json:"provider" form:"provider"`       // 模型供应商
 	DisplayName string `json:"displayName" form:"displayName"` // 模型显示名称
 	IsActive    bool   `json:"isActive" form:"isActive"`       // 启用状态（true: 启用）
+	ScopeType   string `json:"scopeType" form:"scopeType"`     // 模型作用域类型(public: 公开，private: 私有)
 }
 
 func (o *ListModelsRequest) Check() error {

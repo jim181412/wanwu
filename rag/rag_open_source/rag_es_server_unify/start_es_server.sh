@@ -23,7 +23,7 @@ sleep 2
 
 # 启动程序
 echo "启动 ${APP_NAME} 程序...到${PORT}端口"
-PYTHONUNBUFFERED=1 gunicorn --workers $NUM_WORKERS --bind $HOST:$PORT --timeout 600 $APP_NAME:app >$LOG_FILE 2>&1 &
+PYTHONUNBUFFERED=1 gunicorn --workers $NUM_WORKERS --bind $HOST:$PORT --timeout 600 --preload $APP_NAME:app >$LOG_FILE 2>&1 &
 
 if [ $? -eq 0 ]; then
   echo "程序已启动，并输出重定向到 ${LOG_FILE}。"

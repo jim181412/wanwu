@@ -14,6 +14,7 @@ import (
 	knowledgebase_service "github.com/UnicomAI/wanwu/api/proto/knowledgebase-service"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/client/model"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/client/orm"
+	"github.com/UnicomAI/wanwu/internal/knowledge-service/pkg/config"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/pkg/db"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/pkg/util"
 	"github.com/UnicomAI/wanwu/internal/knowledge-service/service"
@@ -45,19 +46,23 @@ const (
 )
 
 func (s *Service) GetDocList(ctx context.Context, req *knowledgebase_doc_service.GetDocListReq) (*knowledgebase_doc_service.GetDocListResp, error) {
-	//查询知识库信息
+	// 1.查询知识库信息
 	knowledge, err := orm.SelectKnowledgeById(ctx, req.KnowledgeId, "", "")
 	if err != nil {
 		log.Errorf("没有操作该知识库的权限 错误(%v) 参数(%v)", err, req)
 		return nil, util.ErrCode(errs.Code_KnowledgeBaseSelectFailed)
 	}
-	//查询关键词信息
+	docIdList := make([]string, 0)
+	// 2.若docIdList不为空，直接返回文档列表，忽略其他筛选条件
+	if len(req.DocIdList) > 0 {
+		docIdList = buildInitDocCondition(req)
+	}
+	// 3.查询关键词信息
 	keywords, err := orm.GetKeywordsListByKnowledgeId(ctx, req.KnowledgeId, req.UserId, req.OrgId)
 	if err != nil {
 		log.Errorf("获取知识库关键词 错误(%v) 参数(%v)", err, req)
 	}
-	docIdList := make([]string, 0)
-	//查找元数据值所对应的文档列表
+	// 4.查找元数据值所对应的文档列表
 	if req.MetaValue != "" {
 		docIdList, err = orm.SelectDocIdListByMetaValue(ctx, "", "", req.KnowledgeId, req.MetaValue)
 		if err != nil {
@@ -69,15 +74,14 @@ func (s *Service) GetDocList(ctx context.Context, req *knowledgebase_doc_service
 			return buildDocListResp(nil, nil, knowledge, 0, req.PageSize, req.PageNum, keywords), nil
 		}
 	}
-
-	//按文档名字查询列表
+	// 5.按文档名字查询列表
 	list, total, err := orm.GetDocList(ctx, "", "", req.KnowledgeId,
 		req.DocName, req.DocTag, util.BuildDocReqStatusList(req.Status), util.BuildDocReqGraphStatusList(req.GraphStatus), docIdList, req.PageSize, req.PageNum)
 	if err != nil {
 		log.Errorf("获取知识库列表失败(%v)  参数(%v)", err, req)
 		return nil, util.ErrCode(errs.Code_KnowledgeBaseSelectFailed)
 	}
-	//查询配置信息
+	// 6.查询配置信息
 	var importTaskList []*model.KnowledgeImportTask
 	if len(list) > 0 {
 		importTaskList, err = orm.SelectKnowledgeImportTaskByIdList(ctx, buildImportTaskIdList(list))
@@ -85,7 +89,6 @@ func (s *Service) GetDocList(ctx context.Context, req *knowledgebase_doc_service
 			log.Errorf("获取知识库列表失败(%v)  参数(%v)", err, req)
 		}
 	}
-
 	return buildDocListResp(list, importTaskList, knowledge, total, req.PageSize, req.PageNum, keywords), nil
 }
 
@@ -654,6 +657,29 @@ func (s *Service) AnalysisDocUrl(ctx context.Context, req *knowledgebase_doc_ser
 	return &knowledgebase_doc_service.AnalysisUrlDocResp{UrlList: retUrlList}, nil
 }
 
+func (s *Service) GetDocUploadLimit(ctx context.Context, empty *emptypb.Empty) (*knowledgebase_doc_service.DocUploadLimitResp, error) {
+	cfg := config.GetConfig().UsageLimit
+	retList := []*knowledgebase_doc_service.FileTypeLimit{
+		buildFileTypeLimit("video", cfg.VideoTypes),
+		buildFileTypeLimit("image", cfg.ImageTypes),
+		buildFileTypeLimit("audio", cfg.AudioTypes),
+	}
+	return &knowledgebase_doc_service.DocUploadLimitResp{
+		List: retList,
+	}, nil
+}
+
+func buildFileTypeLimit(fileType, extStr string) *knowledgebase_doc_service.FileTypeLimit {
+	var extList []string
+	if extStr != "" {
+		extList = strings.Split(extStr, ";")
+	}
+	return &knowledgebase_doc_service.FileTypeLimit{
+		FileType: fileType,
+		ExtList:  extList,
+	}
+}
+
 func checkDocStatus(docList []*model.KnowledgeDoc) ([]uint32, []*model.KnowledgeDoc, error) {
 	var docIdList []uint32
 	var docResultList []*model.KnowledgeDoc
@@ -700,6 +726,7 @@ func buildDocListResp(list []*model.KnowledgeDoc, importTaskList []*model.Knowle
 			EmbeddingModelId: embeddingModelInfo.ModelId,
 			Keywords:         buildKeywords(keywords),
 			LlmModelId:       knowledgeGraph.LlmModelId,
+			Category:         int32(knowledge.Category),
 		},
 	}
 }
@@ -720,6 +747,7 @@ func buildDocInfo(item *model.KnowledgeDoc, segmentConfigMap map[string]*model.S
 		GraphStatus:   int32(status),
 		GraphErrMsg:   message,
 		DocConfigInfo: buildDocConfigInfo(importTask),
+		IsMultimodal:  buildIsMultimodal(item.FileType),
 	}
 }
 
@@ -765,12 +793,37 @@ func buildDocConfigInfo(importTask *model.KnowledgeImportTask) *knowledgebase_do
 		}
 	}
 	return &knowledgebase_doc_service.DocConfigInfo{
-		DocImportType: int32(importTask.ImportType),
-		DocSegment:    config,
-		DocAnalyzer:   analyzer.AnalyzerList,
-		DocPreprocess: preProcess.PreProcessList,
-		OcrModelId:    importTask.OcrModelId,
+		DocImportType:     int32(importTask.ImportType),
+		DocSegment:        config,
+		DocAnalyzer:       analyzer.AnalyzerList,
+		DocPreprocess:     preProcess.PreProcessList,
+		OcrModelId:        importTask.OcrModelId,
+		AsrModelId:        analyzer.AsrModelId,
+		MultimodalModelId: analyzer.MultimodalModelId,
 	}
+}
+
+func buildIsMultimodal(fileType string) bool {
+	cfg := config.GetConfig().UsageLimit
+	allTypes := strings.Join([]string{
+		cfg.AudioTypes,
+		cfg.ImageTypes,
+		cfg.VideoTypes,
+	}, ";")
+	multimodalMap := sliceToMap(strings.Split(allTypes, ";"))
+	// 配置中没有加前缀.，所以去掉传入的前缀.
+	fileType = strings.TrimPrefix(fileType, ".")
+	return multimodalMap[fileType]
+}
+
+func sliceToMap(slice []string) map[string]bool {
+	m := make(map[string]bool)
+	for _, item := range slice {
+		if item != "" {
+			m[item] = true
+		}
+	}
+	return m
 }
 
 func buildSegmentMethod(knowledgeDoc *model.KnowledgeDoc, configMap map[string]*model.SegmentConfig) string {
@@ -899,7 +952,9 @@ func buildReImportTask(req *knowledgebase_doc_service.UpdateDocImportConfigReq, 
 		return nil, err
 	}
 	analyzer, err := json.Marshal(&model.DocAnalyzer{
-		AnalyzerList: docImportReq.DocAnalyzer,
+		AnalyzerList:      docImportReq.DocAnalyzer,
+		AsrModelId:        docImportReq.AsrModelId,
+		MultimodalModelId: docImportReq.MultimodalModelId,
 	})
 	if err != nil {
 		return nil, err
@@ -1478,4 +1533,15 @@ func buildDocTaskMap(tasks []*model.KnowledgeImportTask) map[string]*model.Knowl
 		docTaskMap[task.ImportId] = task
 	}
 	return docTaskMap
+}
+
+func buildInitDocCondition(req *knowledgebase_doc_service.GetDocListReq) []string {
+	docIdList := req.DocIdList
+	req.DocName = ""
+	req.Status = []int32{-1}
+	req.MetaValue = ""
+	req.PageNum = 1
+	req.PageSize = 10000
+	req.GraphStatus = []int32{-1}
+	return docIdList
 }

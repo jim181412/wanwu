@@ -2,10 +2,10 @@ package sse_util
 
 import (
 	"fmt"
-	"google.golang.org/grpc"
 
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 const DONE_MSG = "data: [DONE]\n"

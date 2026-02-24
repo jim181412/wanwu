@@ -66,7 +66,7 @@ func CreateChatflowConversation(ctx *gin.Context, userId, orgId, workflowId, con
 		SetBody(map[string]any{
 			"conversation_name": conversationName,
 			"connector_id":      "1024",
-			"draft_mode":        true,
+			"draft_mode":        false,
 			"get_or_create":     true,
 			"workflow_id":       workflowId,
 		}).

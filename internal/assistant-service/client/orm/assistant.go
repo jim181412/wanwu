@@ -76,6 +76,10 @@ func (c *Client) DeleteAssistant(ctx context.Context, assistantID uint32) *err_c
 		if err := sqlopt.WithAssistantID(assistantID).Apply(tx).Delete(&model.AssistantSnapshot{}).Error; err != nil {
 			return toErrStatus("assistant_delete", err.Error())
 		}
+		// 同步删除智能体对话
+		if err := sqlopt.WithAssistantID(assistantID).Apply(tx).Delete(&model.Conversation{}).Error; err != nil {
+			return toErrStatus("assistant_delete", err.Error())
+		}
 		return nil
 	})
 }

@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
+	"sort"
 	"time"
 
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	"github.com/UnicomAI/wanwu/internal/assistant-service/client/model"
+	"github.com/UnicomAI/wanwu/internal/assistant-service/service/conversation"
 	"github.com/UnicomAI/wanwu/pkg/es"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
@@ -17,8 +18,7 @@ import (
 )
 
 const (
-	terminationMessage = "本次回答已被终止"
-	esTimeout          = 1 * time.Minute
+	esTimeout = 1 * time.Minute
 )
 
 type ConversationParams struct {
@@ -45,8 +45,7 @@ type ConversationProcessor struct {
 }
 
 func (cp *ConversationProcessor) Process(ctx context.Context, req *ConversationParams, sendRequest func(ctx context.Context) (string, *http.Response, context.CancelFunc, error)) (err error) {
-	var fullResponse = &strings.Builder{}
-	var searchList *string
+	var conversationResp = conversation.CreateConversationResp()
 	defer func() {
 		if err != nil {
 			log.Errorf("[Conversation] err: %v", err)
@@ -60,9 +59,9 @@ func (cp *ConversationProcessor) Process(ctx context.Context, req *ConversationP
 			log.Errorf("[Conversation] context err: %v", err)
 		}
 		//todo delete
-		log.Infof("[Conversation] fullResponse: %s", fullResponse.String())
+		log.Infof("[Conversation] fullResponse: %s", conversationResp.Response())
 		//保存会话
-		saveConversation(ctx, req, buildResponse(fullResponse.String(), err), searchList)
+		saveConversation(ctx, req, conversationResp)
 	}()
 	//1.执行请求
 	businessKey, sseResp, cancel, err := sendRequest(ctx)
@@ -71,9 +70,8 @@ func (cp *ConversationProcessor) Process(ctx context.Context, req *ConversationP
 	}
 	defer cancel()
 	//2.读取结果
-	SSEReader := &sse_util.SSEReader{
+	SSEReader := &sse_util.SSEReader[string]{
 		BusinessKey:    businessKey,
-		Params:         "",
 		StreamReceiver: sse_util.NewHttpStreamReceiver(sseResp),
 	}
 	stream, err := SSEReader.ReadStream(ctx)
@@ -81,57 +79,20 @@ func (cp *ConversationProcessor) Process(ctx context.Context, req *ConversationP
 		return err
 	}
 	//3.回写结果
-	err = cp.SSEWriter.WriteStream(stream, nil, conversationLineBuilder(fullResponse, searchList), nil)
+	err = cp.SSEWriter.WriteStream(stream, nil, conversationLineBuilder(conversationResp), nil)
 	return err
 }
 
-func conversationLineBuilder(fullResponse *strings.Builder, searchList *string) func(s sse_util.SSEWriterClient[assistant_service.AssistantConversionStreamResp], strLine string, streamContextParams interface{}) (assistant_service.AssistantConversionStreamResp, bool, error) {
+func conversationLineBuilder(conversationResp *conversation.ConversationResp) func(s sse_util.SSEWriterClient[assistant_service.AssistantConversionStreamResp], strLine string, streamContextParams interface{}) (assistant_service.AssistantConversionStreamResp, bool, error) {
 	return func(s sse_util.SSEWriterClient[assistant_service.AssistantConversionStreamResp], strLine string, streamContextParams interface{}) (assistant_service.AssistantConversionStreamResp, bool, error) {
-		conversation, searchResult := processAgentResp(strLine, streamContextParams)
-		if searchList == nil && len(searchResult) > 0 {
-			searchList = &searchResult
-		}
-		if len(conversation) > 0 {
-			//保存对话
-			fullResponse.WriteString(conversation)
+		err := conversation.BuildConversationResp(conversationResp, strLine)
+		if err != nil {
+			log.Errorf("BuildConversationResp error %s", err)
 		}
 		return assistant_service.AssistantConversionStreamResp{
 			Content: strLine,
 		}, false, nil
 	}
-}
-
-func processAgentResp(strLine string, streamContextParams interface{}) (string, string) {
-	if len(strLine) >= 5 && strLine[:5] == "data:" {
-		jsonStrData := strLine[5:]
-		// 解析流式数据，提取response字段和search_list
-		var agentChatResp = &AgentChatResp{}
-		if err1 := json.Unmarshal([]byte(jsonStrData), agentChatResp); err1 == nil {
-			var searchList string
-			if len(agentChatResp.SearchList) > 0 {
-				marshal, err := json.Marshal(agentChatResp.SearchList)
-				if err == nil {
-					searchList = string(marshal)
-				}
-			}
-			if agentChatResp.EventType != 0 { //非主智能体的先不记录历史
-				return "", ""
-			}
-			return agentChatResp.Response, searchList
-		}
-	}
-	return "", ""
-}
-
-func buildResponse(response string, err error) string {
-	var conversationResponse = response
-	if err != nil {
-		if len(conversationResponse) > 0 {
-			conversationResponse += "\n"
-		}
-		conversationResponse += terminationMessage
-	}
-	return conversationResponse
 }
 
 // 构建错误信息,todo 后续考虑创建枚举明细错误信息
@@ -151,20 +112,16 @@ func buildErrMsg(err error) string {
 }
 
 // 使用独立上下文保存对话的辅助函数
-func saveConversation(originalCtx context.Context, req *ConversationParams, response string, searchListPtr *string) {
+func saveConversation(originalCtx context.Context, req *ConversationParams, conversationResp *conversation.ConversationResp) {
 	if len(req.ConversationId) == 0 {
 		return
-	}
-	var searchList string
-	if searchListPtr != nil {
-		searchList = *searchListPtr
 	}
 	// 如果原始上下文已取消，创建一个新的独立上下文
 	if originalCtx.Err() != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), esTimeout)
 		defer cancel()
 
-		if err := saveConversationDetailToES(ctx, req, response, searchList); err != nil {
+		if err := saveConversationDetailToES(ctx, req, conversationResp); err != nil {
 			log.Errorf("保存聊天记录到ES失败，assistantId: %s, conversationId: %s, error: %v",
 				req.AssistantId, req.ConversationId, err)
 		}
@@ -172,34 +129,20 @@ func saveConversation(originalCtx context.Context, req *ConversationParams, resp
 	}
 
 	// 原始上下文未取消时，继续使用它
-	if err := saveConversationDetailToES(originalCtx, req, response, searchList); err != nil {
+	if err := saveConversationDetailToES(originalCtx, req, conversationResp); err != nil {
 		log.Errorf("保存聊天记录到ES失败，assistantId: %s, conversationId: %s, error: %v",
 			req.AssistantId, req.ConversationId, err)
 	}
 }
 
 // saveConversationDetailToES 保存聊天记录到ES
-func saveConversationDetailToES(ctx context.Context, req *ConversationParams, response, searchList string) error {
+func saveConversationDetailToES(ctx context.Context, req *ConversationParams, conversationResp *conversation.ConversationResp) error {
 	// 根据当前时间生成索引名称，格式为conversation_detail_infos_YYYYMM
 	now := time.Now()
 	indexName := fmt.Sprintf("conversation_detail_infos_%d%02d", now.Year(), now.Month())
 
 	// 组装ConversationDetails数据
-	nowMilli := now.UnixMilli()
-	conversationDetail := &model.ConversationDetails{
-		Id:             uuid.New().String(),
-		AssistantId:    req.AssistantId,
-		ConversationId: req.ConversationId,
-		Prompt:         req.Query,
-		FileInfo:       req.FileInfo,
-		Response:       response,
-		SearchList:     searchList,
-		UserId:         req.UserId,
-		OrgId:          req.OrgId,
-		CreatedAt:      nowMilli,
-		UpdatedAt:      nowMilli,
-	}
-
+	conversationDetail := buildConversationDetail(req, conversationResp, now.UnixMilli())
 	// 写入ES
 	if err := es.Assistant().IndexDocument(ctx, indexName, conversationDetail); err != nil {
 		return fmt.Errorf("写入ES失败: %v", err)
@@ -208,4 +151,55 @@ func saveConversationDetailToES(ctx context.Context, req *ConversationParams, re
 	log.Infof("成功保存聊天记录到ES，索引: %s, assistantId: %s, conversationId: %s",
 		indexName, req.AssistantId, req.ConversationId)
 	return nil
+}
+
+func buildConversationDetail(req *ConversationParams, conversationResp *conversation.ConversationResp, nowMilli int64) *model.ConversationDetails {
+	return &model.ConversationDetails{
+		Id:                        uuid.New().String(),
+		AssistantId:               req.AssistantId,
+		ConversationId:            req.ConversationId,
+		Prompt:                    req.Query,
+		FileInfo:                  req.FileInfo,
+		Response:                  conversationResp.Response(),
+		SearchList:                conversationResp.References(),
+		UserId:                    req.UserId,
+		OrgId:                     req.OrgId,
+		CreatedAt:                 nowMilli,
+		UpdatedAt:                 nowMilli,
+		SubConversationDetailList: buildSubConversationDetailList(conversationResp),
+	}
+}
+
+func buildSubConversationDetailList(conversationResp *conversation.ConversationResp) []*model.SubConversationDetail {
+	if len(conversationResp.ConversationEventMap) == 0 {
+		return make([]*model.SubConversationDetail, 0)
+	}
+	var dataList []*conversation.ConversationResp
+	for _, subConversationResp := range conversationResp.ConversationEventMap {
+		dataList = append(dataList, subConversationResp)
+	}
+	// 对切片进行排序
+	sort.Slice(dataList, func(i, j int) bool {
+		// Order值小的时间更早，排在前面
+		return dataList[i].Order < dataList[j].Order
+	})
+	var retList []*model.SubConversationDetail
+	for _, subConversationResp := range dataList {
+		retList = append(retList, &model.SubConversationDetail{
+			BusinessId:       subConversationResp.EventData.Id,
+			ConversationType: buildConversationType(subConversationResp.EventType),
+			Content:          subConversationResp.Response(),
+			SearchList:       subConversationResp.References(),
+			EventData:        subConversationResp.EventData,
+		})
+	}
+	return retList
+}
+
+func buildConversationType(eventType int) model.ConversationType {
+	if eventType == 1 {
+		return model.SubAgent
+	}
+	//目前只有subAgent 支持后续扩展
+	return model.SubAgent
 }

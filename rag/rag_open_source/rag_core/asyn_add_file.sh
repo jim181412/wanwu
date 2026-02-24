@@ -4,8 +4,6 @@ BASE_LOG_FILE="asyn_add_"
 #kill现有asyn_add_file进程
 ps -ef | grep '[a]syn_add_file' | grep -v grep | awk '{print $2}' | xargs kill -9
 # 发送重启信号
-eval "$(conda shell.bash hook)"
-conda activate rag-new
 nohup ./asyn_doc_status_init > logs/init_asyn.out 2>&1
 sleep 1
 

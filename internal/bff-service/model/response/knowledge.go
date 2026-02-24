@@ -79,6 +79,14 @@ type ChunkSearchList struct {
 	ChildContentList []*ChildContent `json:"childContentList"`
 	ChildScore       []float64       `json:"childScore"`
 	ContentType      string          `json:"contentType"` // graph：知识图谱（文本）, text：文档分段（文本）, community_report：社区报告（markdown），qa：问答库（文本）
+	Score            float64         `json:"score"`
+	RerankInfo       []*RerankInfo   `json:"rerankInfo"`
+}
+
+type RerankInfo struct {
+	Type    string  `json:"type"`
+	FileUrl string  `json:"fileUrl"`
+	Score   float64 `json:"score"`
 }
 
 type ChildContent struct {

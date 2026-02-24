@@ -4,6 +4,7 @@ import os
 import json
 import requests
 import time
+import logging
 
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
@@ -22,11 +23,12 @@ import urllib.parse
 import urllib3
 from know_sse import get_query_dict_cache, query_rewrite
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from logging_config import setup_logging
+from logging_config import init_logging
 from settings import MONGO_URL, USE_DATA_FLYWHEEL
 from qa import index as qa_index
 from qa import search as qa_search
 from utils.http_util import validate_request
+from model_manager.model_config import get_model_configure
 
 # 定义路径
 paths = ["./parser_data"]
@@ -40,12 +42,9 @@ for path in paths:
     else:
         print(f"目录 {path} 已存在。")
 
-logger_name = 'rag_kb_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
-
 app = Flask(__name__)
+init_logging()
+logger = logging.getLogger(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['JSON_AS_ASCII'] = False
@@ -61,13 +60,13 @@ chunk_label_redis_client = redis_utils.get_redis_connection(redis_db=5)
 def init_kb(request_json=None):
     logger.info('---------------初始化知识库---------------')
     try:
-        init_info = request_json
-        user_id = init_info["userId"]
-        kb_name = init_info.get("knowledgeBase", "")
-        kb_id = init_info.get("kb_id", "")
-        embedding_model_id = init_info.get("embedding_model_id", "")
-        enable_knowledge_graph = init_info.get("enable_knowledge_graph", False)
-        logger.info(repr(init_info))
+        user_id = request_json.get("userId")
+        kb_name = request_json.get("knowledgeBase", "")
+        kb_id = request_json.get("kb_id", "")
+        embedding_model_id = request_json.get("embedding_model_id", "")
+        enable_knowledge_graph = request_json.get("enable_knowledge_graph", False)
+        is_multimodal = request_json.get("is_multimodal", False)
+        logger.info(repr(request_json))
         assert len(user_id) > 0
         assert len(kb_name) > 0 or len(kb_id) > 0
         assert len(embedding_model_id) > 0
@@ -75,7 +74,8 @@ def init_kb(request_json=None):
         result_data = kb_utils.init_knowledge_base(user_id, kb_name,
                                                    kb_id=kb_id,
                                                    embedding_model_id=embedding_model_id,
-                                                   enable_knowledge_graph=enable_knowledge_graph)
+                                                   enable_knowledge_graph=enable_knowledge_graph,
+                                                   is_multimodal=is_multimodal)
         headers = {'Access-Control-Allow-Origin': '*'}
         response = make_response(json.dumps(result_data, ensure_ascii=False))
         # response = make_response(json.dumps(result_data, ensure_ascii=False),headers)
@@ -335,10 +335,14 @@ def search_knowledge_base(request_json=None):
     response_info = {
         'code': 0,
         "message": "成功",
-        "data": {"prompt": "",
-                 "searchList": []}
+        "data": {
+            "prompt": "",
+            "searchList": []
+        }
     }
     try:
+        enable_vision = request_json.get("enable_vision", False)
+        attachment_files = request_json.get("attachment_files", [])
         return_meta = request_json.get("return_meta", False)
         prompt_template = request_json.get("prompt_template", '')
         knowledge_base_info = request_json.get("knowledge_base_info", {})
@@ -384,9 +388,33 @@ def search_knowledge_base(request_json=None):
         if rerank_mod == "weighted_score" and retrieve_method != "hybrid_search":
             raise ValueError("Weighted score reranking is only supported in hybrid search mode.")
 
+        filter_attachment_files = []
+        for item in attachment_files:
+            file_type = item.get("file_type")
+            if file_type == "image":
+                file_url = item["file_url"]
+                parsed_url = urllib.parse.urlparse(file_url)
+                # 校验 URL 是否包含协议头和网络位置
+                if not all([parsed_url.scheme, parsed_url.netloc]):
+                    raise ValueError(f"Invalid attachment file URL: {file_url}")
+                filter_attachment_files.append({"image": file_url})
+            else:
+                raise ValueError(f"attachment_file type {file_type} not support")
+        if len(filter_attachment_files) > 1:
+            raise ValueError("Multiple attachment files are not supported.")
+        attachment_files = filter_attachment_files
+
         # assert len(user_id) > 0
         # assert len(kb_name) > 0 or len(kb_id) > 0
-        assert len(question) > 0
+        if not attachment_files and not (question and len(str(question).strip()) > 0):
+            raise ValueError("Invalid input: Attachment and question cannot both be empty")
+
+        if attachment_files and not (question and len(str(question).strip()) > 0):
+            if rerank_mod != "rerank_model":
+                raise ValueError("rerank_mod must be rerank_model when only attachment_files is provided.")
+            model_config = get_model_configure(rerank_model_id)
+            if not model_config.is_multimodal:
+                raise ValueError("The specified rerank_model_id does not support multimodal input.")
 
         if rewrite_query:
             for user_id, kb_info_list in knowledge_base_info.items():
@@ -408,7 +436,8 @@ def search_knowledge_base(request_json=None):
                                                    filter_file_name_list=filter_file_name_list,
                                                    rerank_model_id=rerank_model_id, rerank_mod=rerank_mod,
                                                    weights=weights, metadata_filtering_conditions=metadata_filtering_conditions,
-                                                   use_graph=use_graph)
+                                                   use_graph=use_graph, enable_vision=enable_vision,
+                                                   attachment_files=attachment_files)
         json_str = json.dumps(response_info, ensure_ascii=False)
 
         response = make_response(json_str)
@@ -677,7 +706,7 @@ def batchAddChunks(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         max_sentence_size = request_json.get('max_sentence_size')
         chunks = request_json.get('chunks')
         split_type = request_json.get("split_type", "common")
@@ -708,7 +737,7 @@ def batchAddChildChunks(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         chunk_id = request_json.get('chunk_id')
         child_contents = request_json.get("child_contents", None)
 
@@ -734,7 +763,7 @@ def updateChunk(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         max_sentence_size = request_json.get('max_sentence_size')
         chunk = request_json.get('chunk', None)
         split_type = request_json.get("split_type", "common")
@@ -770,7 +799,7 @@ def updateChildChunk(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         child_chunk = request_json.get('child_chunk', None)
         chunk_id = request_json.get('chunk_id')
         chunk_current_num = request_json.get('chunk_current_num')
@@ -796,7 +825,7 @@ def batchDeleteChunks(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         chunk_ids = request_json.get('chunk_ids', [])
 
         if not chunk_ids or not isinstance(chunk_ids, list):
@@ -819,7 +848,7 @@ def batchDeleteChildChunks(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         chunk_id = request_json.get('chunk_id')
         chunk_current_num = request_json.get('chunk_current_num')
         child_chunk_current_nums = request_json.get('child_chunk_current_nums', [])
@@ -847,7 +876,7 @@ def updateContentStatus(request_json=None):
         user_id = request_json.get('userId')
         kb_name = request_json.get("knowledgeBase", "")
         kb_id = request_json.get("kb_id", "")
-        file_name = request_json.get('file_name')
+        file_name = request_json.get('fileName')
         content_id = request_json.get('content_id')
         status = request_json.get('status')
         on_off_switch = request_json.get('on_off_switch', None)  # 没有传递则默认为 None
@@ -966,7 +995,9 @@ def doc_parser(request_json=None):
             chunk_type=chunk_type,
             separators=separators,
             parser_choices=parser_choices,
-            ocr_model_id=ocr_model_id
+            ocr_model_id=ocr_model_id,
+            asr_model_id = "",
+            multimodal_model_id = ""
         )
         status, chunks, filename = file_utils.split_chunks_for_parser(file_path, split_config)
 

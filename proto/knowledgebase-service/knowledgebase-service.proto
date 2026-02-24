@@ -86,14 +86,22 @@ message KnowledgeHitReq{
   string orgId = 1;
   string userId = 2;
   string question = 3; //问题
-  repeated KnowledgeParams knowledgeList = 4;//知识库参数列表
+  repeated KnowledgeParams knowledgeList = 4;//元数据相关参数
   KnowledgeMatchParams knowledgeMatchParams = 5; //模型匹配方式
+  repeated DocFileInfo docInfoList = 6; //上传文档列表
 }
 
+message DocFileInfo {
+  string docName = 1;  //文档名称
+  string docUrl = 2;  //文档url
+  string docType = 3; // 文档类型
+  string docId = 4;//文档id
+  int64 docSize = 5;//文档大小
+}
 
 message KnowledgeMatchParams{
-  string  matchType = 1; //matchType：vector（向量检索）、text（文本检索）、mix（混合检索：向量+文本）
-  string  rerankModelId = 2;//rerank模型id
+  string matchType = 1; //matchType：vector（向量检索）、text（文本检索）、mix（混合检索：向量+文本）
+  string rerankModelId = 2;//rerank模型id
   int32 priorityMatch = 3;// 权重匹配，只有在混合检索模式下，选择权重设置后，这个才设置为1
   float semanticsPriority = 4;// 语义权重
   float keywordPriority = 5;// 关键词权重
@@ -198,7 +206,7 @@ message KnowledgeInfo {
   int32 shareCount = 11;//共享数量
   string ragName = 12;//传给rag的知识库名称
   int32 graphSwitch = 13; //知识图谱开关
-  int32 category = 14; // 0:知识库 1:问答库
+  int32 category = 14; // 0:知识库 1:问答库 2: 多模态知识库
   string llmModelId = 15; // 知识图谱-大模型id
   string updatedAt = 16; // 更新时间
   int32 external = 17; //0:知识库 1:外部知识库
@@ -231,7 +239,16 @@ message KnowledgeSearchInfo{
   repeated ChildContent childContentList = 4;
   repeated float childScore = 5;
   string contentType = 6; // graph：知识图谱（文本）, text：文档分段（文本）, community_report：社区报告（markdown）
+  float score = 7;
+  repeated RerankInfo rerankInfo = 8;
 }
+
+message RerankInfo{
+  string type = 1;
+  string fileUrl = 2;
+  float score = 3;
+}
+
 
 message ChildContent{
   string childSnippet = 1;

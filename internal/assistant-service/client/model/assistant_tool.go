@@ -2,8 +2,8 @@ package model
 
 type AssistantTool struct {
 	ID          uint32 `gorm:"primarykey;column:id"`
-	AssistantId uint32 `gorm:"column:assistant_id;comment:智能体id"`
-	ToolId      string `gorm:"column:tool_id;comment:工具id"`
+	AssistantId uint32 `gorm:"column:assistant_id;index:idx_assistant_tool_assistant_id;comment:智能体id"`
+	ToolId      string `gorm:"column:tool_id;index:idx_assistant_tool_tool_id;comment:工具id"`
 	ToolType    string `gorm:"column:tool_type;comment:工具类型"`
 	ActionName  string `gorm:"column:action_name;comment:操作名称"`
 	Enable      bool   `gorm:"column:enable;comment:是否启用"`

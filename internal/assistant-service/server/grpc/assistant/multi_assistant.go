@@ -121,7 +121,7 @@ func buildMultiConversationParams(req *assistant_service.MultiAssistantConversio
 func buildMultiAgentSendRequest(req *assistant_service.MultiAssistantConversionStreamReq) func(ctx context.Context) (string, *http.Response, context.CancelFunc, error) {
 	var conversationID string
 	// 历史聊天记录配置
-	if !req.Trial && req.ConversationId != "" {
+	if req.ConversationId != "" {
 		conversationID = req.ConversationId
 	}
 	// 底层智能体能力接口请求体

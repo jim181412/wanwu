@@ -134,7 +134,7 @@ rag-server:
   update-qa-pair-status-uri: '/rag/update-QA-status'
   batch-delete-qa-pairs-uri: '/rag/batch-delete-QAs'
   knowledge-QA-hit-uri: '/callback/v1/rag/search-QA-base'
-  timeout: 60
+  timeout: 120
 
 dify-server:
   get-datasets-uri: '/datasets'
@@ -147,6 +147,9 @@ usage-limit:
   punc-types: "？@#@！@#@。@#@?@#@......@#@!@#@."
   file-types: ".docx;.txt;.pdf;.xlsx;.csv;.pptx;.html;.doc;.xls;.ofd;.wps;.md;.png;.jpg;.jpeg;.mp3;.MP3;.wav;.aac;.m4a;.avi;.mp4;.avi;.mov;.wmv"
   compressed-file-type: ".zip;.tar.gz"
+  audio-types: "mp3;wav;aac;m4a"
+  video-types: "avi;mp4;mov;wmv"
+  image-types: "png;jpg;jpeg"
   max-number-of-files-in-compressed: -1
   max-file-size: 209715200
   txt-size-limit: 209715200

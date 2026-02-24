@@ -3,16 +3,15 @@ package nodes
 import (
 	"context"
 	"fmt"
-	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/config"
-	agent_util "github.com/UnicomAI/wanwu/internal/agent-service/pkg/util"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/minio-service"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/request"
+	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/config"
+	agent_util "github.com/UnicomAI/wanwu/internal/agent-service/pkg/util"
 	"github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-flow/prompt"
+	minio_service "github.com/UnicomAI/wanwu/internal/agent-service/service/minio-service"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -55,7 +54,6 @@ func (p *PromptVariables) AssemblePromptVariables(ctx context.Context, reqContex
 
 	subAgentInfoList := reqContext.AgentChatReq.SubAgentInfoList
 	if reqContext.AgentChatReq.MultiAgent && len(subAgentInfoList) > 0 {
-		variables[prompt.PlaceholderOfSubAgent] = buildSubAgent(subAgentInfoList)
 		variables[prompt.PlaceholderOfSubAgentCount] = strconv.Itoa(len(subAgentInfoList))
 	}
 
@@ -137,12 +135,4 @@ func buildFileMessage(minioFilePath string) (*schema.MessageInputPart, error) {
 			},
 		},
 	}, nil
-}
-
-func buildSubAgent(agentList []*request.SubAgentInfo) string {
-	builder := strings.Builder{}
-	for _, params := range agentList {
-		builder.WriteString(fmt.Sprintf(prompt.SupervisorAgentTemplate, params.Name, params.Description))
-	}
-	return builder.String()
 }

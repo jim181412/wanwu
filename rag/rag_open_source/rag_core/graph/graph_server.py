@@ -23,9 +23,10 @@ from graph.utils.logger import logger
 from graph.utils import kt_gen as constructor
 from graph.config import get_config, ConfigManager, prompt_templates
 from graph.utils import graph_processor
-
+from logging_config import init_logging
 
 app = FastAPI(title="graph Unified Interface", version="1.0.0")
+init_logging()
 
 # CORS middleware
 app.add_middleware(

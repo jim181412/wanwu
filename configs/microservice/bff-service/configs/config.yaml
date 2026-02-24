@@ -97,6 +97,7 @@ default-icon:
   mcpServer: "/v1/static/icon/mcp-server-default-icon.png"
   tool: "/v1/static/icon/custom-tool-default-icon.png"
   prompt: "/v1/static/icon/prompt-default-icon.png"
+  skill: "/v1/static/icon/skill-default-icon.png"
 
 doc-center:
   frontend_prefix: /aibase/docCenter/pages
@@ -110,69 +111,69 @@ doc-center:
     - key: model
       val: 模型导入方式-详细版.md
     - key: knowledge
-      val: 2.知识库/创建知识库、问答库/创建知识库/创建知识库.md
+      val: 2.资源库/知识库/创建知识库、问答库/创建知识库/创建内部知识库.md
     - key: knowledge-hit
-      val: 2.知识库/命中测试/创建命中测试.md
+      val: 2.资源库/知识库/命中测试/创建命中测试.md
     - key: knowledge-keywords
-      val: 2.知识库/关键词管理.md
+      val: 2.资源库/知识库/关键词管理.md
     - key: mcp
-      val: 3.资源库.md
+      val: 2.资源库/MCP服务.md
     - key: safety
-      val: 4.安全护栏.md
+      val: 2.资源库/安全护栏.md
     - key: rag
-      val: 5.文本问答.md
+      val: 3.应用开发/文本问答.md
     - key: agent
-      val: 7.智能体.md
+      val: 3.应用开发/智能体.md
     - key: workflow-1
-      val: 6.工作流/开始节点.md
+      val: 3.应用开发/工作流/开始节点.md
     - key: workflow-2
-      val: 6.工作流/结束节点.md
+      val: 3.应用开发/工作流/结束节点.md
     - key: workflow-3
-      val: 6.工作流/大模型节点.md
+      val: 3.应用开发/工作流/大模型节点.md
     - key: workflow-5
-      val: 6.工作流/业务逻辑/代码节点.md
+      val: 3.应用开发/工作流/业务逻辑/代码节点.md
     - key: workflow-8
-      val: 6.工作流/业务逻辑/选择器节点.md
+      val: 3.应用开发/工作流/业务逻辑/选择器节点.md
     - key: workflow-9
-      val: 6.工作流/工作流节点.md
+      val: 3.应用开发/工作流/工作流节点.md
     - key: workflow-12
-      val: 6.工作流/数据库/SQL自定义节点.md
+      val: 3.应用开发/工作流/数据库/SQL自定义节点.md
     - key: workflow-13
-      val: 6.工作流/输入&输出/输出节点.md
+      val: 3.应用开发/工作流/输入&输出/输出节点.md
     - key: workflow-15
-      val: 6.工作流/组件/文本处理节点.md
+      val: 3.应用开发/工作流/组件/文本处理节点.md
     - key: workflow-21
-      val: 6.工作流/业务逻辑/循环节点.md
+      val: 3.应用开发/工作流/业务逻辑/循环节点.md
     - key: workflow-28
-      val: 6.工作流/业务逻辑/批处理节点.md
+      val: 3.应用开发/工作流/业务逻辑/批处理节点.md
     - key: workflow-30
-      val: 6.工作流/输入&输出/输入节点.md
+      val: 3.应用开发/工作流/输入&输出/输入节点.md
     - key: workflow-32
-      val: 6.工作流/业务逻辑/变量聚合节点.md
+      val: 3.应用开发/工作流/业务逻辑/变量聚合节点.md
     - key: workflow-45
-      val: 6.工作流/组件/HTTP请求节点.md
+      val: 3.应用开发/工作流/组件/HTTP请求节点.md
     - key: workflow-58
-      val: 6.工作流/组件/JSON序列化节点.md
+      val: 3.应用开发/工作流/组件/JSON序列化节点.md
     - key: workflow-1004
-      val: 6.工作流/组件/工具节点.md
+      val: 3.应用开发/工作流/组件/工具节点.md
     - key: workflow-1005
-      val: 6.工作流/知识库&数据/问答库检索节点.md
+      val: 3.应用开发/工作流/知识库&数据/问答库检索节点.md
     - key: workflow-1006
-      val: 6.工作流/知识库&数据/知识库节点.md
+      val: 3.应用开发/工作流/知识库&数据/知识库节点.md
     - key: workflow-1007
-      val: 6.工作流/文档/文档生成节点.md
+      val: 3.应用开发/工作流/文档/文档生成节点.md
     - key: workflow-1008
-      val: 6.工作流/文档/文档解析节点.md
+      val: 3.应用开发/工作流/文档/文档解析节点.md
     - key: workflow-1009
-      val: 6.工作流/组件/MCP节点.md
+      val: 3.应用开发/工作流/组件/MCP节点.md
     - key: workflow-1010
-      val: 6.工作流/组件/GUI节点.md
+      val: 3.应用开发/工作流/组件/GUI节点.md
     - key: workflow-1022
-      val: 6.工作流/业务逻辑/意图识别节点.md
+      val: 3.应用开发/工作流/业务逻辑/意图识别节点.md
     - key: workflow-1059
-      val: 6.工作流/组件/JSON反序列化节点.md
+      val: 3.应用开发/工作流/组件/JSON反序列化节点.md
 
-models :
+models:
   - model_id: "Asr"
     model_type: "asr"
     provider: "YuanJing"
@@ -190,6 +191,8 @@ workflow-template:
 prompt-template:
   configPath: configs/microservice/bff-service/configs/prompt_template_config.yaml
 
+skills-template:
+  configPath: configs/microservice/bff-service/configs/skills_template_config.yaml
 # --- middleware ---
 
 minio:
@@ -237,10 +240,14 @@ operate:
 rag-knowledge:
   endpoint: 'http://rag-wanwu:8681'
   chat-endpoint: 'http://rag-wanwu:10891'
+  upload-endpoint: 'http://rag-wanwu:15000'
   search-knowledge-base-uri: '/rag/search-knowledge-base'
   knowledge-chat-uri: '/rag/knowledge/stream/search'
   search-qa-base-uri: '/rag/search-QA-base'
   search-know-timeout: 300
+  upload-uri: '/upload'
+  upload-bucket: 'rag-public'
+  upload-timeout: 120
 
 dify-knowledge:
   search-knowledge-base-uri: '/datasets/{dataset_id}/retrieve'
@@ -269,7 +276,7 @@ workflow:
   get_draft_intelligence_info_uri: /api/intelligence_api/search/get_draft_intelligence_info
   get_project_conversation_def: /api/workflow_api/project_conversation/create_by_wanwu
   get_conversation_message_list_uri: /v1/conversation/message/list_by_wanwu
-  delete_conversation_uri: /api/workflow_api/project_conversation/delete
+  delete_conversation_uri: /api/workflow_api/project_conversation/delete_by_wanwu
   # upload
   upload_action_uri: /api/common/upload/apply_upload_action
   upload_common_uri: /api/common/upload

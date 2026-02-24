@@ -95,11 +95,6 @@ func ValidateLLMModel(ctx *gin.Context, modelInfo *model_service.ModelInfo) erro
 				Function: &mp_common.OpenAIFunction{
 					Name:        "get_current_time",
 					Description: "It's very useful when you want to know the current time in Beijing.",
-					Parameters: &mp_common.OpenAIFunctionParameters{
-						Type:       "object",
-						Properties: map[string]mp_common.OpenAIFunctionParametersProperty{},
-						Required:   []string{},
-					},
 				},
 			},
 		}
@@ -307,9 +302,14 @@ func ValidateMultiRerankModel(ctx *gin.Context, modelInfo *model_service.ModelIn
 	if !ok {
 		return fmt.Errorf("invalid provider")
 	}
-	base64Str, _, err := util.File2Base64(config.Cfg().Model.PngTestFilePath, "")
+	base64Str, base64StrWithPrefix, err := util.File2Base64(config.Cfg().Model.PngTestFilePath, "")
 	if err != nil {
 		return err
+	}
+	// jina 传参为不带前缀base64
+	urlData := base64StrWithPrefix
+	if modelInfo.Provider == mp.ProviderJina {
+		urlData = base64Str
 	}
 	// mock  request
 	req := &mp_common.MultiModalRerankReq{
@@ -320,7 +320,7 @@ func ValidateMultiRerankModel(ctx *gin.Context, modelInfo *model_service.ModelIn
 				Text: "北极",
 			},
 			{
-				Image: base64Str,
+				Image: urlData,
 			},
 		},
 	}
@@ -333,12 +333,10 @@ func ValidateMultiRerankModel(ctx *gin.Context, modelInfo *model_service.ModelIn
 	if err != nil {
 		return fmt.Errorf("model API call failed: %v", err)
 	}
-	res, ok := resp.ConvertResp()
+	_, ok = resp.ConvertResp()
 	if !ok {
 		return fmt.Errorf("invalid response format")
 	}
-	jsonRes, _ := json.Marshal(res)
-	log.Infof("multi modal rerank response: %v", string(jsonRes))
 	return nil
 }
 
@@ -455,12 +453,10 @@ func ValidatePdfParserModel(ctx *gin.Context, modelInfo *model_service.ModelInfo
 	if err != nil {
 		return fmt.Errorf("model API call failed: %v", err)
 	}
-	res, ok := resp.ConvertResp()
+	_, ok = resp.ConvertResp()
 	if !ok {
 		return fmt.Errorf("invalid response format")
 	}
-	resJson, _ := json.Marshal(res)
-	log.Infof("model %v pdf parser resp: %v", modelInfo.ModelId, string(resJson))
 	return nil
 }
 
@@ -482,17 +478,14 @@ func ValidateSyncAsrModel(ctx *gin.Context, modelInfo *model_service.ModelInfo) 
 	if err != nil {
 		return err
 	}
-	log.Infof("3333333")
 	resp, err := iAsr.SyncAsr(ctx, asrReq)
 	if err != nil {
 		return fmt.Errorf("model API call failed: %v", err)
 	}
-	res, ok := resp.ConvertResp()
+	_, ok = resp.ConvertResp()
 	if !ok {
 		return fmt.Errorf("invalid response format")
 	}
-	jsonRes, _ := json.Marshal(res)
-	log.Infof("model %v sync asr response: %v", modelInfo.ModelId, string(jsonRes))
 	return nil
 }
 

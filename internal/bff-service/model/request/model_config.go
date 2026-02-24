@@ -22,6 +22,7 @@ type ModelConfig struct {
 	Config      interface{}             `json:"config"`
 	ModelDesc   string                  `json:"modelDesc"`          // 模型描述
 	Examples    *mp.ProviderModelConfig `json:"examples,omitempty"` // 仅用于swagger展示；模型对应供应商中的对应llm、embedding或rerank结构是config实际的参数
+	ScopeType   string                  `json:"scopeType"`
 }
 
 func (cfg *ModelConfig) Check() error {

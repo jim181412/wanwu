@@ -1,15 +1,8 @@
-import os
-import nltk
 import copy
-# 设置NLTK数据路径
-# 获取当前文件的绝对路径
-current_file_path = os.path.abspath(__file__)
-# 获取当前文件所在的目录
-current_dir = os.path.dirname(current_file_path)
-# 拼接nltk_data文件夹的路径
-nltk_data_path = os.path.join(current_dir, 'nltk_data')
-nltk.data.path.append(nltk_data_path)
-nltk.data.path.append("/opt/nltk_data")
+import logging
+
+from logging_config import init_logging
+
 from utils import milvus_utils
 from utils import minio_utils
 from utils import es_utils
@@ -23,7 +16,6 @@ import subprocess
 from kafka import KafkaConsumer, TopicPartition, OffsetAndMetadata
 import json
 import threading
-from logging_config import setup_logging
 from datetime import datetime
 import re
 from settings import *
@@ -43,15 +35,7 @@ for path in paths:
         print(f"目录 {path} 已存在。")
 
 
-logger_name = 'rag_asyn_add_files_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
-
-master_control_logger_name = 'mc_rag_asyn_add_files_utils'
-master_control_app_name = os.getenv("LOG_FILE") + "_master_control"
-master_control_logger = setup_logging(master_control_app_name, master_control_logger_name)
-master_control_logger.info(logger_name + '---------LOG_FILE：' + repr(master_control_app_name))
+logger = logging.getLogger(__name__)
 
 CONVERT_OFFICE_FORMAT_MAP = {".doc": "docx", ".wps": "docx", ".xls": "xlsx", ".ppt": "pptx", ".ofd": "pdf"}
 
@@ -83,33 +67,40 @@ def kafkal():
             # 初始化用户知识库路径
             print('收到新kafka消息：' + repr(message.value))
             logger.info('收到新kafka消息：' + repr(message.value))
-            master_control_logger.info('收到新kafka消息：' + repr(message.value))
-            message_value = json.loads(message.value)
-            if "ocr_model_id" not in message_value["doc"]:
-                logger.error("no ocr_model_id")
+            try:
+                message_value = json.loads(message.value)
+                doc = message_value.get("doc", {})
+            except (json.JSONDecodeError, AttributeError) as e:
+                logger.error(f"Failed to parse message: {e}")
                 continue
-            file_id = message_value["doc"]["id"]
-            kb_name = message_value["doc"]["categoryId"]
-            user_id = message_value["doc"]["userId"]
-            kb_id = message_value["doc"].get("kb_id", "")
-            overlap_size = message_value["doc"]["overlap"]
-            object_name = message_value["doc"]["objectName"]
-            sentence_size = message_value["doc"]["chunk_size"]
-            filename = message_value["doc"]["originalName"]
-            split_type = message_value["doc"].get("split_type", "common")
-            chunk_type = message_value["doc"].get("chunk_type", "default")
-            separators = message_value["doc"].get("separators", ['。'])
-            is_enhanced = message_value["doc"].get("is_enhanced", 'false')
-            enable_knowledge_graph = message_value["doc"].get("enable_knowledge_graph", "false")
+
+
+            file_id = doc.get("id")
+            user_id = doc.get("userId")
+            kb_id = doc.get("kb_id", "")
+            kb_name = doc.get("categoryId")
+            filename = doc.get("originalName")
+            object_name = doc.get("objectName")
+
+            # 分块与解析配置
+            sentence_size = doc.get("chunk_size")
+            overlap_size = doc.get("overlap")
+            split_type = doc.get("split_type", "common")
+            chunk_type = doc.get("chunk_type", "default")
+            separators = doc.get("separators", ['。'])
+
+            # 状态开关（建议处理成布尔值或统一格式）
+            is_enhanced = doc.get("is_enhanced", "false")
+            enable_knowledge_graph = doc.get("enable_knowledge_graph", "false")
 
             # 文件导入时选择解析方式，默认勾选文字提取，可选光学识别ocr当多选时此参数默认为["text"],当勾选ocr时传：["text","ocr"]
-            parser_choices = message_value["doc"]["parser_choices"] if "parser_choices" in message_value["doc"] else [
-                "text"]
-            ocr_model_id = message_value["doc"]["ocr_model_id"] if "ocr_model_id" in message_value["doc"] else [
-                ""]
-            pre_process = message_value["doc"]["pre_process"] if "pre_process" in message_value["doc"] else []
-            meta_data_rules = message_value["doc"]["meta_data"] if "meta_data" in message_value["doc"] else []
-            child_chunk_config = message_value["doc"]["child_chunk_config"] if "child_chunk_config" in message_value["doc"] else None
+            parser_choices = doc.get("parser_choices", ["text"])
+            asr_model_id = doc.get("asr_model_id", "")
+            multimodal_model_id = doc.get("multimodal_model_id", "")
+            ocr_model_id = doc.get("ocr_model_id", "")
+            pre_process = doc.get("pre_process", [])
+            meta_data_rules = doc.get("meta_data", [])
+            child_chunk_config = doc.get("child_chunk_config")
 
             split_config = SplitConfig(
                 sentence_size=sentence_size,
@@ -118,6 +109,8 @@ def kafkal():
                 separators=separators,
                 parser_choices=parser_choices,
                 ocr_model_id=ocr_model_id,
+                asr_model_id=asr_model_id,
+                multimodal_model_id=multimodal_model_id,
                 split_type=split_type,
                 child_chunk_config=child_chunk_config
             )
@@ -131,9 +124,7 @@ def kafkal():
                     # consumer.commit(offsets=offsets)  # 不需要使用这个提交
                     consumer.commit()
                     logger.info('kafka异步消费完成 ===== 已提交 offset：' + str(message.offset) + '===== kafka消息：' + repr(message.value))
-                    master_control_logger.info('kafka异步消费完成 ===== 已提交 offset：' + str(message.offset) + '===== kafka消息：' + repr(message.value))
                     logger.info('consumer.commit offset：' + repr(offsets))
-                    master_control_logger.info('consumer.commit offset：' + repr(offsets))
 
                 if KAFKA_USE_ASYN_ADD:
                     # ============ 异步添加 =============
@@ -149,11 +140,9 @@ def kafkal():
                     add_files(user_id, kb_name, filename, object_name, file_id, is_enhanced, enable_knowledge_graph, pre_process, meta_data_rules, split_config, kb_id=kb_id)
                     # ============ 顺序添加 =============
                 logger.info('----->kafka异步消费完成：user_id=%s,kb_name=%s,filename=%s,file_id=%s,process finished' % (user_id, kb_name,filename,file_id))
-                master_control_logger.info('----->kafka异步消费完成：user_id=%s,kb_name=%s,filename=%s,file_id=%s,process finished' % (user_id, kb_name, filename, file_id))
 
             except Exception as e:
                 logger.error("kafka处理异常：" + repr(e))
-                master_control_logger.error("kafka处理异常：" + repr(e))
                 continue
 
 
@@ -298,111 +287,92 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
     res_filename = ""
     if not is_safe_filename(file_name):
         logger.error('文件名不合法')
-        master_control_logger.error('文件名不合法')
         mq_rel_utils.update_doc_status(file_id, status=53)
         return
     try:
         filepath = os.path.join(user_data_path, user_id, kb_name)
         logger.info('add_files_filepath=%s' % filepath)
-        master_control_logger.info('add_files_filepath=%s' % filepath)
         if not os.path.exists(filepath):
             os.makedirs(filepath)
         else:
             logger.info('filepath=%s 已存在' % filepath)
-            master_control_logger.info('filepath=%s 已存在' % filepath)
         logger.info('文档查重开始')
-        master_control_logger.info('文档查重开始')
         files_in_milvus = milvus_utils.list_knowledge_file(user_id, kb_name, kb_id=kb_id)
         logger.info('向量库已有文档查询结果：' + repr(files_in_milvus))
-        master_control_logger.info('向量库已有文档查询结果：' + repr(files_in_milvus))
 
         if files_in_milvus['code'] != 0:
             logger.error('文档向量库重复查询校验失败')
-            master_control_logger.error('文档向量库重复查询校验失败')
             mq_rel_utils.update_doc_status(file_id, status=51)
             return
         filenames_in_milvus = files_in_milvus['data']['knowledge_file_names']
         if file_name in filenames_in_milvus:
             logger.error('文档已存在该知识库')
-            master_control_logger.error('文档已存在该知识库')
             mq_rel_utils.update_doc_status(file_id, status=52)
             return
         else:
             logger.info('文档查重完成')
-            master_control_logger.info('文档查重完成')
             mq_rel_utils.update_doc_status(file_id, status=31)
     except Exception as e:
         logger.error(repr(e))
         logger.error('文档向量库重复查询校验失败')
-        master_control_logger.error('文档向量库重复查询校验失败' + repr(e))
         mq_rel_utils.update_doc_status(file_id, status=51)
         return
 
     try:
         logger.info('文档下载开始')
-        master_control_logger.info('文档下载开始')
         download_path = os.path.join(filepath, file_name)
         download_status, download_link = minio_utils.get_file_from_minio(object_name, download_path)
         logger.info("------>download_link:%s" % download_link)
-        master_control_logger.info("------>download_link:%s" % download_link)
         if not download_status:
             logger.error('文档下载失败')
-            master_control_logger.error('文档下载失败')
             mq_rel_utils.update_doc_status(file_id, status=53)
             return
         else:
             logger.info('文档下载完成')
-            master_control_logger.info('文档下载完成')
             mq_rel_utils.update_doc_status(file_id, status=32)
             # 转换文件格式
             base_filename, file_extension = os.path.splitext(file_name)  # 分离文件名和后缀
-            master_control_logger.info(f"base_filename={base_filename} file_extension={file_extension}")
+            logger.info(f"base_filename={base_filename} file_extension={file_extension}")
             if "model" in split_config.parser_choices and file_extension in [".doc", ".docx", ".pptx"]:  # 先判断是否模型解析
                 convert_office_format_map = {".doc": "pdf", ".docx": "pdf", ".pptx": "pdf"}
                 target_format = convert_office_format_map[file_extension]  # 获取目标格式
                 res_filename = knowledge_base_utils.convert_office_file(download_path, convert_dir, target_format)
                 if res_filename:
-                    master_control_logger.error(f"{download_path} convert_office_file successfully => {res_filename}")
+                    logger.info(f"{download_path} convert_office_file successfully => {res_filename}")
                 else:
-                    master_control_logger.error(f"{download_path} convert_office_file failed")
+                    logger.error(f"{download_path} convert_office_file failed")
                     mq_rel_utils.update_doc_status(file_id, status=53)
                     return
             elif file_extension in CONVERT_OFFICE_FORMAT_MAP:
                 target_format = CONVERT_OFFICE_FORMAT_MAP[file_extension]  # 获取目标格式
                 res_filename = knowledge_base_utils.convert_office_file(download_path, convert_dir, target_format)
                 if res_filename:
-                    master_control_logger.error(f"{download_path} convert_office_file successfully => {res_filename}")
+                    logger.info(f"{download_path} convert_office_file successfully => {res_filename}")
                 else:
-                    master_control_logger.error(f"{download_path} convert_office_file failed")
+                    logger.error(f"{download_path} convert_office_file failed")
                     mq_rel_utils.update_doc_status(file_id, status=53)
                     return
 
     except Exception as e:
         logger.error(repr(e))
         logger.error('文档下载失败')
-        master_control_logger.error('文档下载失败' + repr(e))
         mq_rel_utils.update_doc_status(file_id, status=53)
         return
 
     meta_parsed = {}
     try:
         logger.info('文档切分开始')
-        master_control_logger.info('文档切分开始')
         if res_filename:  # 需要传递转换后的 文件路径
             add_file_path = res_filename
         else:
             add_file_path = download_path
         logger.info('------>add_file_path=%s' % add_file_path)
-        master_control_logger.info('------>add_file_path=%s' % add_file_path)
         # 检查文件是否存在
         if os.path.exists(add_file_path):
             logger.info(f'{user_id}-{kb_name}' + '文件已成功保存存在本地, 文件路径是：' + add_file_path)
-            master_control_logger.info(f'{user_id}-{kb_name}' + '文件已成功保存存在本地, 文件路径是：' + add_file_path)
         else:
             logger.info(f'{user_id}-{kb_name}' + add_file_path + ",文件在本地不存在，未保存成功")
-            master_control_logger.info(f'{user_id}-{kb_name}' + add_file_path + ",文件在本地不存在，未保存成功")
             logger.error('文档下载完成，但文件不存在本地')
-            master_control_logger.error('文档下载完成，但文件不存在本地')
             mq_rel_utils.update_doc_status(file_id, status=53)
             return
 
@@ -419,8 +389,6 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
         logger.info(f"file_name: {file_name}, 文本预处理规则: {pre_process_rules}")
         logger.info(repr(file_name) + '文档切分长度：' + repr(len(chunks)))
         logger.info(repr(file_name) + '文档递归切分长度：' + repr(len(sub_chunk)))
-        master_control_logger.info(repr(file_name) + '文档切分长度：' + repr(len(chunks)))
-        master_control_logger.info(repr(file_name) + '文档递归切分长度：' + repr(len(sub_chunk)))
 
         file_meta = {}
         with open("./data/%s_chunk.txt" % file_name, 'w', encoding='utf-8') as chunks_file:
@@ -435,6 +403,9 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
 
                 if pre_process_rules:
                     item["text"] = pre_process_text(item["text"], pre_process_rules)
+                    # parent_text 作为父段存储在snippet index中，该字段用户生成content_id, 需要和subchunk中的content字段内容保持一致
+                    if "parent_text" in item:
+                        item["parent_text"] = pre_process_text(item["parent_text"], pre_process_rules)
                 item["meta_data"]["doc_meta"] = meta_parsed
                 if not file_meta:
                     file_meta = item["meta_data"]
@@ -458,12 +429,10 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
 
         if len(chunks) == 0 or len(sub_chunk) == 0:
             logger.error('文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error('文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=61)
             return
         else:
             logger.info('文档切分完成' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.info('文档切分完成' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=33)
     except Exception as e:
         import traceback
@@ -471,26 +440,20 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
         logger.error(traceback.format_exc())
         if "Error loading" in repr(e):  # 文件不可用
             logger.error('文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error(
-                '文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + repr(e))
             mq_rel_utils.update_doc_status(file_id, status=62)
             return
         else:
             logger.error(repr(e))
             logger.error('文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error('文档切分失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + repr(e))
             mq_rel_utils.update_doc_status(file_id, status=54)
             return
     try:
         logger.info('添加文档meta开始' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-        master_control_logger.info('添加文档meta开始' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
         add_file_result = es_utils.add_file(user_id, kb_name, file_name, file_meta, kb_id=kb_id)
         logger.info(repr(file_name) + '添加文档meta结果：' + repr(add_file_result))
-        master_control_logger.info(repr(file_name) + '添加文档meta结果：' + repr(add_file_result))
         if add_file_result['code'] != 0:
             # 回调
             logger.error('添加文档meta失败'+ "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error('添加文档meta失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=55)
             return
         else:
@@ -498,59 +461,45 @@ def add_files(user_id, kb_name, file_name, object_name, file_id,
     except Exception as e:
         logger.error(repr(e))
         logger.error('添加文档meta失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-        master_control_logger.error(
-            '添加文档meta失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + repr(e))
         mq_rel_utils.update_doc_status(file_id, status=55)
         return
 
     try:
         logger.info('文档插入milvus开始' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-        master_control_logger.info('文档插入milvus开始' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
         insert_milvus_result = milvus_utils.add_milvus(user_id, kb_name, sub_chunk, file_name, add_file_path, kb_id=kb_id)
         logger.info(repr(file_name) + '添加milvus结果：' + repr(insert_milvus_result))
-        master_control_logger.info(repr(file_name) + '添加milvus结果：' + repr(insert_milvus_result))
         if insert_milvus_result['code'] != 0:
             logger.error('文档插入milvus失败'+ "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error('文档插入milvus失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=55)
             return
         else:
             logger.info('文档插入milvus完成'+ "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.info('文档插入milvus完成' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=34)
     except Exception as e:
-        logger.error(repr(e))
-        logger.error('文档插入milvus失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-        master_control_logger.error('文档插入milvus失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + repr(e))
+        logger.error(f"文档插入milvus失败, user_id={user_id},kb_name={kb_name},file_name={file_name}, exception={repr(e)}")
         mq_rel_utils.update_doc_status(file_id, status=55)
         return
 
     try:
         logger.info('文档插入es开始')
-        master_control_logger.info('文档插入es开始')
         insert_es_result = es_utils.add_es(user_id, kb_name, chunks, file_name, kb_id=kb_id)
         logger.info(repr(file_name) + '添加es结果：' + repr(insert_es_result))
-        master_control_logger.info(repr(file_name) + '添加es结果：' + repr(insert_es_result))
         if insert_es_result['code'] != 0:
             logger.error('文档插入es失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.error('文档插入es失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=56)
             return
         else:
             logger.info('文档插入es完成' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-            master_control_logger.info('文档插入es完成' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
             mq_rel_utils.update_doc_status(file_id, status=35)
     except Exception as e:
         logger.error(repr(e))
         logger.error('文档插入es失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name))
-        master_control_logger.error('文档插入es失败' + "user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + repr(e))
         mq_rel_utils.update_doc_status(file_id, status=56)
         return
 
     # --------------7、最终完成
 
     logger.info("user_id=%s,kb_name=%s,file_name=%s" % (user_id, kb_name, file_name) + '===== 文档上传成功且完成')
-    master_control_logger.info("user_id=%s,kb_name=%s,file_name=%s,kb_id=%s" % (user_id, kb_name, file_name, kb_id) + '===== 文档上传成功且完成')
     mq_rel_utils.update_doc_status(file_id, status=10, meta_datas=meta_parsed)
 
 
@@ -562,4 +511,5 @@ def is_safe_filename(name: str) -> bool:
     return True
 
 if __name__ == "__main__":
+    init_logging()
     kafkal()

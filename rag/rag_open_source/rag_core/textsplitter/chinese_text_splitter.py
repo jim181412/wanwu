@@ -3,13 +3,6 @@ import re
 import os
 from typing import List
 
-from logging_config import setup_logging
-
-logger_name='rag_chinesesplit_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
-
 
 def process_string(long_str, punctuation_list, size):  
     # 存储逆序后的句子列表（包括标点）  

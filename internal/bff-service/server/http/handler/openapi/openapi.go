@@ -8,6 +8,7 @@ import (
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
 	"github.com/UnicomAI/wanwu/internal/bff-service/service"
+	"github.com/UnicomAI/wanwu/pkg/constant"
 	gin_util "github.com/UnicomAI/wanwu/pkg/gin-util"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
@@ -44,7 +45,7 @@ func CreateAgentConversation(ctx *gin.Context) {
 	resp, err := service.ConversationCreate(ctx, userID, orgID, request.ConversationCreateRequest{
 		AssistantId: appID,
 		Prompt:      req.Title,
-	})
+	}, constant.ConversationTypeOpenAPI)
 	if err != nil {
 		gin_util.Response(ctx, nil, err)
 		return
@@ -82,7 +83,6 @@ func ChatAgent(ctx *gin.Context) {
 			ConversationId: req.ConversationID,
 			Prompt:         req.Query,
 			FileInfo:       []request.ConversionStreamFile{},
-			Trial:          false,
 		}, true); err != nil {
 			gin_util.Response(ctx, nil, err)
 		}
@@ -94,7 +94,6 @@ func ChatAgent(ctx *gin.Context) {
 		ConversationId: req.ConversationID,
 		Prompt:         req.Query,
 		FileInfo:       []request.ConversionStreamFile{},
-		Trial:          false,
 	}, true)
 	if err != nil {
 		gin_util.Response(ctx, nil, err)

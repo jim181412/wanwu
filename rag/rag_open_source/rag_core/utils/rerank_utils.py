@@ -1,72 +1,78 @@
 import requests
 import json
 import os
-import math
 import time
 # from sklearn.feature_extraction.text import TfidfVectorizer
 import re
 # import jieba.posseg as pseg
+import logging
+import utils.es_utils as es_utils
 
 # import model_manager
-from model_manager import RerankModelConfig
-from model_manager import get_model_configure
+from model_manager.model_config import RerankModelConfig
+from model_manager.model_config import get_model_configure
 from langchain.prompts import PromptTemplate
-from logging_config import setup_logging
 from utils.prompts import PROMPT_TEMPLATE, CITATION_INSTRUCTION
-from settings import TRUNCATE_PROMPT, CONTEXT_LENGTH
+from settings import TRUNCATE_PROMPT, CONTEXT_LENGTH, REPLACE_MINIO_DOWNLOAD_URL, MINIO_ADDRESS
 
-logger_name = 'rag_rerank_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
+logger = logging.getLogger(__name__)
+
+def qa_weighted_rerank(query, weights, top_k, search_list_infos):
+    response_info = {'code': 0, "message": "成功", "data": {"sorted_scores":[], "sorted_search_list": []}}
+
+    if not search_list_infos:
+        return response_info
+
+    return es_utils.qa_rescore(query, weights, top_k, search_list_infos)
 
 
-def get_maas_rerank(rerank_url, model_name, api_key, rerank_data, raw_search_list, top_k):
+def get_weighted_rerank(query, weights, search_list, top_k):
+    search_list_infos = {}
+    for item in search_list:
+        if "content_type" in item and item["content_type"] == "image":
+            continue
+        base_name = item["kb_name"]
+        user_id = item["user_id"]
+
+        if user_id not in search_list_infos:
+            search_list_infos[user_id] = {
+                "base_names": [],
+                "search_list": []
+            }
+
+        search_list_infos[user_id]["base_names"].append(base_name)
+        search_list_infos[user_id]["search_list"].append(item)
+
+    return es_utils.kb_rescore(query, weights, search_list_infos, top_k)
+
+def get_model_rerank(query: str|dict,
+                     top_n: int,
+                     documents: list,
+                     raw_search_list: list,
+                     model_name: str,
+                     endpoint_url: str,
+                     api_key: str):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    retrys_num = 0
-    while retrys_num < 1:
-        try:
-            response = requests.post(rerank_url, headers=headers,
-                                     data=json.dumps(rerank_data, ensure_ascii=False).encode('utf-8'))
-            result_data = json.loads(response.text)
-            sorted_scores = []
-            sorted_search_list = []
-            for item in result_data[:top_k]:  # 只取前top_k个结果
-                sorted_scores.append(item['score'])
-                sorted_search_list.append(raw_search_list[item["index"]])
-            result_data = {"code": 0,
-                           "result": {"sorted_scores": sorted_scores, "sorted_search_list": sorted_search_list}}
-            return result_data
-        except Exception as e:
-            logger.error(f"Error while connecting to {model_name} rerank: {e}")
-            retrys_num += 1
-            time.sleep(0.5)
-    return {"code": 1, "msg": f"{model_name} rerank error: {rerank_url}"}  # 返回错误信息
 
-def get_openai_rerank(rerank_url, model_name, api_key, query, documents, raw_search_list, top_n):
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    docList = []
-    for doc in documents:
-        docList.append(doc["text"])
-    logger.info("docList = %s", repr(docList))
+    logger.info(f"rerank docList: {documents}")
     rerank_data = {
         "model": model_name,
         "query": query,
-        "documents": docList,
+        "documents": documents,
         "top_n": top_n,
         "return_documents": True
     }
     
     # 将请求体转换为JSON字符串用于日志记录
     request_body = json.dumps(rerank_data, ensure_ascii=False, indent=2)
-    logger.info(f"Rerank request details:\nURL: {rerank_url}\nHeaders: {headers}\nBody: {request_body}")
+    logger.info(f"Rerank request details:\nURL: {endpoint_url}\nHeaders: {headers}\nBody: {request_body}")
 
     last_error = None
     for attempt in range(3):  # 重试3次
         try:
             # 发送请求（注意使用request_body变量会二次编码，应使用原始数据）
             response = requests.post(
-                rerank_url,
+                endpoint_url,
                 headers=headers,
                 data=json.dumps(rerank_data, ensure_ascii=False).encode('utf-8')
             )
@@ -109,39 +115,33 @@ def get_openai_rerank(rerank_url, model_name, api_key, query, documents, raw_sea
     return {"code": 1, "message": error_msg}
 
 
-def get_model_rerank(question, top_k, documents, raw_search_list, rerank_model_id):
-
-    model_config = get_model_configure(rerank_model_id)
-    model_provider = model_config.model_provider
+def model_rerank(query: dict|str,
+                 top_k: int,
+                 documents: list,
+                 raw_search_list: list,
+                 rerank_model_id: str,
+                 model_config:RerankModelConfig=None):
     model_name = model_config.model_name
+    model_url_suffix = "/rerank"
+    is_support_multimodal = model_config.is_multimodal
+    logger.info(f"model_rerank, query: {query}, is_support_multimodal: {is_support_multimodal}")
+    if is_support_multimodal:
+        model_url_suffix = "/multimodal-rerank"
     if isinstance(model_config, RerankModelConfig):
-        model_url = model_config.endpoint_url + "/rerank"
+        model_url = model_config.endpoint_url + model_url_suffix
         api_key = model_config.api_key
     else:
         raise Exception(f"model type of model {rerank_model_id} is not rerank")
 
-    # if model_config.model_provider == "OpenAI-API-compatible": # 写死openapi格式，具体由bff层适配
-    # documents = gen_rag_list(searchList, es_list)
-    logger.info("get_model_rerank, openapi doc = %s", repr(documents))
-    # raw_search_list = gen_raw_list(searchList, es_list)
-    result_data = get_openai_rerank(model_url, model_name, api_key, question, documents, raw_search_list, top_k)
-    return result_data
+    # replace url by internal minio url
+    for doc in documents:
+        if isinstance(doc, dict):
+            for key, value in doc.items():
+                if key == "image" and not value.startswith(f"http://{MINIO_ADDRESS}"):
+                    suffix = value.replace(REPLACE_MINIO_DOWNLOAD_URL, "").lstrip("/")
+                    doc[key] = f"http://{MINIO_ADDRESS}/{suffix}"
 
-    # sorted_scores = result_data['result']["sorted_scores"]
-    # sorted_search_list = result_data['result']["sorted_search_list"]
-
-    # elif model_config.model_provider == "YuanJing":
-    #     raw_search_list = gen_raw_list(searchList, es_list)
-    #     texts = [item['snippet'] for item in raw_search_list]  # 从字典中提取文本
-    #     rerank_data = {"query": question, "texts": texts}
-    #     result_data = get_maas_rerank(model_url, model_name, api_key, rerank_data, raw_search_list,
-    #                                   top_k)  # 不传 len(raw_search_list)
-    #     sorted_scores = result_data['result']["sorted_scores"]
-    #     sorted_search_list = result_data['result']["sorted_search_list"]
-
-
-    # return sorted_scores, sorted_search_list
-
+    return get_model_rerank(query, top_k, documents, raw_search_list, model_name, model_url, api_key)
 
 def assemble_search_result(question, sorted_scores, search_list, threshold, return_meta, prompt_template, default_answer,
                   auto_citation):

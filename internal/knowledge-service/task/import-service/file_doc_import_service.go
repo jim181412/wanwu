@@ -191,7 +191,7 @@ func buildKnowledgeDoc(importTask *model.KnowledgeImportTask, checkFileResult *C
 		ImportTaskId: importTask.ImportId,
 		KnowledgeId:  importTask.KnowledgeId,
 		FilePath:     docInfo.DocUrl,
-		FilePathMd5:  util.MD5(docInfo.DocUrl),
+		FilePathMd5:  wanwu_util.MD5([]byte(docInfo.DocUrl)),
 		DirFilePath:  docInfo.DirFilePath,
 		Name:         docInfo.DocName,
 		FileType:     docInfo.DocType,

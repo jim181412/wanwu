@@ -24,6 +24,10 @@ func ModelExperienceLLM(ctx *gin.Context, userId, orgId string, req *request.Mod
 		gin_util.Response(ctx, nil, err)
 		return
 	}
+	if !modelInfo.IsActive {
+		gin_util.Response(ctx, nil, grpc_util.ErrorStatus(err_code.Code_BFFModelStatus, modelInfo.ModelId))
+		return
+	}
 
 	// dialog records
 	recordsResp, err := model.GetModelExperienceDialogRecords(ctx, &model_service.GetModelExperienceDialogRecordsReq{
@@ -220,10 +224,36 @@ func ListModelExperienceDialogs(ctx *gin.Context, userId, orgId string) (*respon
 	if err != nil {
 		return nil, err
 	}
+
+	// 收集所有唯一的模型ID
+	modelIdMap := make(map[string]bool)
+	for _, dialog := range resp.Dialogs {
+		modelIdMap[dialog.ModelId] = true
+	}
+
+	// 提取唯一模型ID列表
+	var uniqueModelIds []string
+	for modelId := range modelIdMap {
+		uniqueModelIds = append(uniqueModelIds, modelId)
+	}
+
+	// 批量检查模型权限
+	authorizedModelIds, _ := CheckModelUserPermission(ctx, userId, orgId, uniqueModelIds)
+
+	// 创建授权模型ID的映射，用于快速查找
+	authorizedModelMap := make(map[string]bool)
+	for _, modelId := range authorizedModelIds {
+		authorizedModelMap[modelId] = true
+	}
+
+	// 过滤出用户有权限的对话
 	var dialogs []*response.ModelExperienceDialog
 	for _, dialog := range resp.Dialogs {
-		dialogs = append(dialogs, toModelExperienceDialog(dialog))
+		if authorizedModelMap[dialog.ModelId] {
+			dialogs = append(dialogs, toModelExperienceDialog(dialog))
+		}
 	}
+
 	return &response.ListResult{
 		List:  dialogs,
 		Total: int64(len(resp.Dialogs)),
@@ -266,7 +296,6 @@ func ListModelExperienceDialogRecords(ctx *gin.Context, userId, orgId string, re
 		Total: int64(len(records)),
 	}, nil
 }
-
 func toModelExperienceDialog(dialog *model_service.ModelExperienceDialog) *response.ModelExperienceDialog {
 	return &response.ModelExperienceDialog{
 		ID:           dialog.ModelExperienceId,

@@ -54,7 +54,6 @@ func (c *Client) GetModelExperienceDialog(ctx context.Context, userId, orgId str
 func (c *Client) ListModelExperienceDialogs(ctx context.Context, userId, orgId string) ([]*model_client.ModelExperienceDialog, *errs.Status) {
 	var dialogs []*model_client.ModelExperienceDialog
 	if err := sqlopt.SQLOptions(
-		sqlopt.WithOrgID(orgId),
 		sqlopt.WithUserID(userId),
 	).Apply(c.db.WithContext(ctx)).Order("created_at desc").Find(&dialogs).Error; err != nil {
 		return nil, toErrStatus("model_experience_dialog_list_err", err.Error())
@@ -102,7 +101,6 @@ func (c *Client) ListModelExperienceDialogRecords(ctx context.Context, userId, o
 	if err := sqlopt.SQLOptions(
 		sqlopt.WithModelExperienceId(modelExperienceId),
 		sqlopt.WithSessionID(sessionId),
-		sqlopt.WithOrgID(orgId),
 		sqlopt.WithUserID(userId),
 	).Apply(c.db).WithContext(ctx).Find(&records).Error; err != nil {
 		return nil, toErrStatus("model_experience_dialog_record_list_err", err.Error())

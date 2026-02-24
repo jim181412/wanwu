@@ -19,6 +19,6 @@ for PORT in {10891..10891}; do
   # 启动FastAPI应用，并将输出重定向到指定的日志文件，同时在后台运行
   echo "正在启动FastAPI应用，端口号为$PORT..."
   echo $BASE_LOG_FILE$PORT.log
-    LOG_FILE=$BASE_LOG_FILE$PORT nohup uvicorn know_sse:app --workers 5 --host 0.0.0.0 --port $PORT &
+    LOG_FILE=$BASE_LOG_FILE$PORT nohup gunicorn know_sse:app -w 5 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --timeout 600 --preload > /dev/null 2>&1 &
   echo "FastAPI应用启动成功，日志文件为./logs/$BASE_LOG_FILE$PORT.log。"
 done

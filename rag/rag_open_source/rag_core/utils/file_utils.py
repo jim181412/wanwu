@@ -1,6 +1,7 @@
 import copy
 import os
 import urllib3
+import logging
 from dataclasses import dataclass, field
 from typing import List
 
@@ -11,15 +12,13 @@ from chains.local_doc_qa import load_file, ChineseTextSplitter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-from logging_config import setup_logging
 from utils import ocr_utils
 from utils.constant import MAX_SENTENCE_SIZE, MIN_SENTENCE_SIZE
 from utils import model_parser_utils
+from utils import asr_utils
+from utils import keyframe_extract
 
-logger_name='rag_file_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SplitConfig:
@@ -30,6 +29,8 @@ class SplitConfig:
     separators: List[str]
     parser_choices: List[str]
     ocr_model_id: str
+    asr_model_id: str
+    multimodal_model_id: str
     split_type: str = "common"
     child_chunk_config: dict = field(default_factory=dict)
 
@@ -52,7 +53,10 @@ def split_parent_child_chunks(filepath: str,config: SplitConfig):
                              config.chunk_type,
                              config.overlap_size,
                              config.parser_choices,
-                             config.ocr_model_id)
+                             config.ocr_model_id,
+                             config.asr_model_id,
+                             config.multimodal_model_id
+                             )
 
     child_sentence_size = max(int(config.child_chunk_config["chunk_size"]), MIN_SENTENCE_SIZE)
     child_separators=config.child_chunk_config["separators"]
@@ -153,7 +157,9 @@ def split_chunks(filepath: str,config: SplitConfig):
                              config.chunk_type,
                              config.overlap_size,
                              config.parser_choices,
-                             config.ocr_model_id)
+                             config.ocr_model_id,
+                             config.asr_model_id,
+                             config.multimodal_model_id)
             if len(docs) > 0:
                 chunks = []
                 for document in docs:
@@ -357,6 +363,16 @@ def split_file_adapter(add_file_path: str, download_link: str, config: SplitConf
         logger.info("-----定制化word解析+切分：支持复杂表格-------")
         loader = DOCXLoader(add_file_path, autodetect_encoding=True)
         chunks = loader.custom_load_and_split_doc()
+    elif file_name.lower().endswith((".wav", ".mp3", ".aac", ".m4a", ".mp4",  ".mov", ".avi")):
+        if "asr" in config.parser_choices:
+            logger.info("-----执行音视频ASR解析转文本-------")
+            chunks = asr_utils.asr_parser_chunk(add_file_path, config.asr_model_id)
+        if file_name.lower().endswith((".mp4", ".mov", ".avi")):
+            logger.info("-----执行视频画面关键帧解析转文本-------")
+            keyframe_chunks = keyframe_extract.exact(add_file_path, config.parser_choices, config.multimodal_model_id)
+            if keyframe_chunks:
+                # 如果视频中有画面帧择提取画面帧chunk追加
+                chunks.extend(keyframe_chunks)
 
     status = True if len(chunks) > 0 else False
     if status:

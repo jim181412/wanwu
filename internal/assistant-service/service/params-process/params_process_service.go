@@ -2,6 +2,7 @@ package params_process
 
 import (
 	"fmt"
+
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	knowledgebase_service "github.com/UnicomAI/wanwu/api/proto/knowledgebase-service"
 	mcp_service "github.com/UnicomAI/wanwu/api/proto/mcp-service"
@@ -76,7 +77,7 @@ type APIAuth struct {
 
 type AgentPrepareParams struct {
 	KnowledgeList        []*knowledgebase_service.KnowledgeInfo
-	AssistantToolMap     map[string]*model.AssistantTool
+	AssistantToolMap     map[string][]string
 	CustomToolList       []*mcp_service.GetCustomToolInfoResp
 	SquareToolList       []*mcp_service.SquareToolDetail
 	WorkflowList         []map[string]interface{}

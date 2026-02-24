@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 func IfElse[T any](ok bool, trueValue, falseValue T) T {
@@ -69,4 +70,22 @@ func ConvertMapToString(req map[string]interface{}) map[string]string {
 		}
 	}
 	return formData
+}
+
+func CheckAndRemoveBase64Prefix(s string) (string, bool) {
+	// 空值直接返回，避免后续处理报错
+	if s == "" {
+		return "", false
+	}
+	// 核心判断：是否包含Base64标准前缀分隔符「;base64,」（精准区分Base64和URL）
+	const base64PrefixFlag = ";base64,"
+	if strings.Contains(s, base64PrefixFlag) {
+		// 是带前缀Base64，按逗号分割取纯Base64内容（SplitN避免内容含逗号，最多分割2部分）
+		parts := strings.SplitN(s, ",", 2)
+		if len(parts) == 2 {
+			return parts[1], true
+		}
+	}
+	// 非带前缀Base64（如URL/其他字符串），返回原串+false
+	return s, false
 }

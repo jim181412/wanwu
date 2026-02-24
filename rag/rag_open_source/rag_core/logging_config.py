@@ -12,8 +12,11 @@ current_time = current_date.strftime('%Y%m%d')
 # 全局变量定义
 LOG_DIRECTORY = f'./logs'
 LOG_LEVEL = logging.INFO
-INTERVAL = 1 
-BACKUP_COUNT = 10  # 保留的日志文件数量
+INTERVAL = 1
+LOG_FILE_MAX_SIZE = 20
+LOG_FILE_BACKUP_COUNT = 10
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # 日志格式
+LOG_DATEFORMAT = '%Y-%m-%d %H:%M:%S'  # 日期格式
 
 
 def get_log_directory():
@@ -74,3 +77,40 @@ def setup_logging(app_name,logger_name):
     logger.addHandler(file_handler)  
 
     return logger
+
+
+def init_logging():
+    log_handlers = []
+    # 强制重配置 stdout 为行缓冲模式，确保每一行日志都能即时输出到 Docker Console
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(line_buffering=True)
+
+    log_file = os.getenv("LOG_FILE")
+
+    if log_file:
+        # 使用动态路径获取日志目录
+        LOG_DIRECTORY = get_log_directory()
+        os.makedirs(LOG_DIRECTORY, exist_ok=True)
+        # 定义日志文件的完整路径，日志文件命名规则 {app_name}.log
+        pid = os.getpid()
+        unique_log_file = os.path.join(LOG_DIRECTORY, f'{log_file}.log')
+
+        log_handlers.append(
+            RotatingFileHandler(
+                filename=unique_log_file,
+                maxBytes=LOG_FILE_MAX_SIZE * 1024 * 1024,
+                backupCount=LOG_FILE_BACKUP_COUNT,
+            )
+        )
+
+    # Console Handler
+    sh = logging.StreamHandler(sys.stdout)
+    log_handlers.append(sh)
+
+    logging.basicConfig(
+        level=LOG_LEVEL,
+        format=LOG_FORMAT,
+        datefmt=LOG_DATEFORMAT,
+        handlers=log_handlers,
+        force=True,
+    )

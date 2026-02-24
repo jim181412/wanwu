@@ -37,6 +37,15 @@
 
 ------
 
+### 📢 Open Ecosystem
+
+- [External Knowledge Base Compatibility](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E7%9F%A5%E8%AF%86%E5%BA%93/%E8%BF%9E%E6%8E%A5%E5%A4%96%E6%8E%A5%E7%9F%A5%E8%AF%86%E5%BA%93.md): Supports API-based import of knowledge bases created in Dify, with retrieval and recall in agents, Q&A, and workflows.
+- [MCP Hub](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E8%B5%84%E6%BA%90%E5%BA%93%2FMCP%E6%9C%8D%E5%8A%A1.md): Supports importing and using MCP from different service providers.
+- [Skills](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/2.%E8%B5%84%E6%BA%90%E5%BA%93%2FSkills.md): Supports downloading Skills, with seamless integration to OpenClaw.
+- [OpenClaw Sandbox](https://github.com/UnicomAI/wanwu/blob/main/configs/microservice/bff-service/static/manual/8.%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD%E4%BD%93%2F%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%8A%A9%E6%89%8B-OPENCLAW%2F%E5%A6%82%E4%BD%95%E5%9C%A8%E4%B8%87%E6%82%9F%E4%B8%AD%E6%8E%A5%E5%85%A5OpenClaw%E6%9C%BA%E5%99%A8%E4%BA%BA.md): We provide the option to deploy each “OpenClaw Robot” in a standalone Docker container. You can directly access your locally deployed OpenClaw robot within Yuanjing Wanwu.
+
+------
+
 ### &#x1F525; Adopt a permissive and friendly Apache 2.0 License, supporting developers to freely expand and develop secondary
 
 ✔ **Enterprise-level engineering**: Provides a complete toolchain from model management to application landing, solving the "last mile" problem of LLM technology landing
@@ -47,7 +56,7 @@
 
 ✔ **Multi-tenant architecture**: Provides a multi-tenant account system to meet the core needs of users in cost control, data security isolation, business elasticity expansion, industry customization, rapid online and ecological collaboration
 
-✔ **XinChuang adaptation**: Already adapted to domestic XinChuang databases TiDB and OceanBase
+✔ **XinChuang adaptation**: The product has been awarded the **“Xinchuang AI Hardware and Software System Inspection Certificate“**，featuring hardware support for Huawei Kunpeng CPUs and software compatibility with domestic operating systems (e.g., openEuler, CULinux, Kylin) and databases (e.g., TiDB, OceanBase).
 
 ------
 
@@ -251,6 +260,8 @@ The platform has been successfully applied in multiple industries such as **fina
    ```
 
 4. Based on the above Docker installation steps, completely start the system service
+
+✔ The product has been awarded the “Xinchuang AI Hardware and Software System Inspection Certificate,” featuring hardware support for Huawei Kunpeng CPUs and software compatibility with domestic operating systems (e.g., openEuler, CULinux, Kylin) and databases (e.g., TiDB, OceanBase).
 
 ------
 

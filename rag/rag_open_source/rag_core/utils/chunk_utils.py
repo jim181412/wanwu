@@ -1,17 +1,14 @@
 import os
 import copy
+import logging
 
-from logging_config import setup_logging
 from utils.tools import generate_md5
 from utils import milvus_utils
 from utils import es_utils
 from utils import file_utils
 from utils import redis_utils
 
-logger_name = 'rag_chunk_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name, logger_name)
-logger.info(logger_name + '---------LOG_FILE：' + repr(app_name))
+logger = logging.getLogger(__name__)
 
 chunk_label_redis_client = redis_utils.get_redis_connection(redis_db=5)
 
@@ -262,7 +259,7 @@ def update_child_chunk(user_id: str, kb_name: str, file_name: str, chunk_id: str
     """
     logger.info(f"========= update_child_chunk start：user_id: {user_id}, kb_name: {kb_name}, kb_id: {kb_id}, "
                 f"file_name: {file_name}, chunk_id: {chunk_id}, chunk_current_num: {chunk_current_num}, child_chunk: {child_chunk}")
-    response_info = milvus_utils.update_child_chunk(user_id, kb_name, chunk_id, chunk_current_num, child_chunk)
+    response_info = milvus_utils.update_child_chunk(user_id, kb_name, file_name, chunk_id, chunk_current_num, child_chunk)
     logger.info(f"========= update_child_chunk end：user_id: {user_id}, kb_name: {kb_name}, kb_id: {kb_id}, "
                 f"file_name: {file_name}, chunk_id: {chunk_id}")
 

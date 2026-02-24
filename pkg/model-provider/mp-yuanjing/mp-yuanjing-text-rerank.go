@@ -27,14 +27,13 @@ func (cfg *Rerank) Tags() []mp_common.Tag {
 }
 
 func (cfg *Rerank) NewReq(req *mp_common.TextRerankReq) (mp_common.ITextRerankReq, error) {
+	m := map[string]interface{}{}
 	instruction := "Given a web search query, retrieve relevant passages that answer the query"
 	if req.Instruction == nil {
-		req.Instruction = &instruction
+		m["instruction"] = instruction
 	}
-	m, err := req.Data()
-	if err != nil {
-		return nil, err
-	}
+	m["query"] = req.Query
+	m["documents"] = req.Documents
 	return mp_common.NewRerankReq(m), nil
 }
 
@@ -43,7 +42,7 @@ func (cfg *Rerank) Rerank(ctx context.Context, req mp_common.ITextRerankReq, hea
 	if err != nil {
 		return nil, err
 	}
-	return &rerankResp{raw: string(b)}, nil
+	return &textRerankResp{raw: string(b)}, nil
 }
 
 func (cfg *Rerank) rerankUrl() string {
@@ -51,18 +50,18 @@ func (cfg *Rerank) rerankUrl() string {
 	return ret
 }
 
-// --- rerankResp ---
+// --- textRerankResp ---
 
-type rerankResp struct {
+type textRerankResp struct {
 	raw     string
 	Results []mp_common.Result `json:"results"`
 }
 
-func (resp *rerankResp) String() string {
+func (resp *textRerankResp) String() string {
 	return resp.raw
 }
 
-func (resp *rerankResp) Data() (interface{}, bool) {
+func (resp *textRerankResp) Data() (interface{}, bool) {
 	ret := []map[string]interface{}{}
 	if err := json.Unmarshal([]byte(resp.raw), &ret); err != nil {
 		log.Errorf("yuanjing rerank resp (%v) convert to data err: %v", resp.raw, err)
@@ -71,7 +70,7 @@ func (resp *rerankResp) Data() (interface{}, bool) {
 	return ret, true
 }
 
-func (resp *rerankResp) ConvertResp() (*mp_common.RerankResp, bool) {
+func (resp *textRerankResp) ConvertResp() (*mp_common.RerankResp, bool) {
 	if err := json.Unmarshal([]byte(resp.raw), resp); err != nil {
 		log.Errorf("yuanjing rerank resp (%v) convert to data err: %v", resp.raw, err)
 		return nil, false

@@ -1,0 +1,281 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "通义千问 (Qwen) 多模态工具",
+    "description": "基于通义千问大模型的文生图和图像编辑工具。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://callback-wanwu:8669/v1",
+      "description": "Base URL"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Tongyi Multi-Modal",
+      "description": "通义千问系列工具"
+    }
+  ],
+  "paths": {
+    "/qwen-t2i/qwen-image-max": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义千问文生图: qwen-image-max",
+        "description": "根据文本提示词生成图像。可以基于文本描述(提示词)创造出全新的图像",
+        "operationId": "qwen_image_max",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "正向提示词,用于描述期望生成的图像内容、风格和构图。支持中英文,长度不超过800个字符。",
+                    "example": "一只在太空中飞翔的猫，赛博朋克风格",
+                    "maxLength": 800
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "反向提示词,用于描述不希望在图像中出现的内容,对画面进行限制。支持中英文,长度不超过500个字符。",
+                    "default": "",
+                    "example": "模糊，低质量",
+                    "maxLength": 500
+                  },
+                  "size": {
+                    "type": "string",
+                    "description": "输出图像的分辨率，格式为宽*高。默认分辨率为1664*928,可选分辨率及对应比例为1664*928(默认,16:9)、1472*1104(4:3)、1328*1328(1:1)、1104*1472(3:4)和 928*1664(9:16)。",
+                    "default": "1664*928",
+                    "example": "1664*928",
+                    "enum": [
+                      "1664*928",
+                      "1472*1104",
+                      "1328*1328",
+                      "1104*1472",
+                      "928*1664"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "description": "生成数量",
+                    "default": 1,
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "生成任务提交成功/生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": { "type": "string", "example": "" },
+                    "message": { "type": "string", "example": "" },
+                    "request_id": { "type": "string", "example": "6b3980c1-3d18-4e07-aba7-8c08ae3e0e1d" },
+                    "status_code": { "type": "integer", "example": 200 },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "audio": { "type": "string", "nullable": true, "example": null },
+                        "text": { "type": "string", "nullable": true, "example": null },
+                        "finish_reason": { "type": "string", "nullable": true, "example": null },
+                        "choices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "finish_reason": { "type": "string", "example": "stop" },
+                              "message": {
+                                "type": "object",
+                                "properties": {
+                                  "role": { "type": "string", "example": "assistant" },
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "image": { "type": "string", "format": "uri", "example": "https://..." }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "task_metric": {
+                          "type": "object",
+                          "properties": {
+                            "FAILED": { "type": "integer", "example": 0 },
+                            "SUCCEEDED": { "type": "integer", "example": 1 },
+                            "TOTAL": { "type": "integer", "example": 1 }
+                          }
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "characters": { "type": "integer", "example": 0 },
+                        "height": { "type": "integer", "example": 1280 },
+                        "width": { "type": "integer", "example": 1280 },
+                        "image_count": { "type": "integer", "example": 1 },
+                        "input_tokens": { "type": "integer", "example": 0 },
+                        "output_tokens": { "type": "integer", "example": 0 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/qwen-i2i/qwen-image-edit-max": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义千问图片编辑: qwen-image-edit-max",
+        "description": "支持单图、多图输入和多图输出，可精确修改图内文字、增删或移动物体、改变主体动作、迁移图片风格及增强画面细节。",
+        "operationId": "qwen_image_edit_max",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt",
+                  "images"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "编辑指令 (正向提示词), 用于描述期望对原图进行的修改内容。",
+                    "example": "生成一张符合深度图的图像，遵循以下描述：一辆红色的破旧的自行车停在一条泥泞的小路上，背景是茂密的原始森林"
+                  },
+                  "images": {
+                    "type": "array",
+                    "description": "输入图像的 URL 或 Base64 编码数据。支持传入1-3张图像。多图输入时,按照数组顺序定义图像顺序。",
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "example": [
+                      "https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20250925/fpakfo/image36.webp"
+                    ]
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "反向提示词, 用于描述不希望在图像中出现的内容。",
+                    "default": "",
+                    "example": "模糊，低质量，变形"
+                  },
+                  "size": {
+                    "type": "string",
+                    "description": "输出图像分辨率格式为“宽*高”。支持多种比例，宽高范围[512,2048]。",
+                    "default": "1024*1024",
+                    "example": "1024*1024"
+                  },
+                  "n": {
+                    "type": "integer",
+                    "description": "生成数量",
+                    "default": 1,
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "生成任务提交成功/生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string",
+                      "description": "请求的唯一标识符",
+                      "example": "bf37ca26-0abe-98e4-8065-xxxxxx"
+                    },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "choices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "finish_reason": {
+                                "type": "string",
+                                "description": "生成停止的原因",
+                                "example": "stop"
+                              },
+                              "message": {
+                                "type": "object",
+                                "properties": {
+                                  "role": {
+                                    "type": "string",
+                                    "description": "角色名称",
+                                    "example": "assistant"
+                                  },
+                                  "content": {
+                                    "type": "array",
+                                    "description": "生成的内容列表，包含图片地址",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "image": {
+                                          "type": "string",
+                                          "format": "uri",
+                                          "description": "生成图片的访问地址",
+                                          "example": "https://dashscope-result-sz.oss-cn-shenzhen.aliyuncs.com/xxx.png"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "description": "本次请求的计量信息",
+                      "properties": {
+                        "width": { "type": "integer", "example": 1536 },
+                        "height": { "type": "integer", "example": 1024 },
+                        "image_count": { "type": "integer", "example": 2 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

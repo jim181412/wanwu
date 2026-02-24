@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	mcp_service "github.com/UnicomAI/wanwu/api/proto/mcp-service"
 	"github.com/UnicomAI/wanwu/internal/assistant-service/client/model"
@@ -87,26 +88,36 @@ func buildAssistantTools(agent *AgentInfo, clientInfo *ClientInfo) ([]*model.Ass
 }
 
 // buildToolIdList构建工具id列表
-func buildToolIdList(resp []*model.AssistantTool) (customToolIdList []string, builtInToolIdList []string, assistantToolMap map[string]*model.AssistantTool) {
+func buildToolIdList(resp []*model.AssistantTool) (customToolIdList []string, builtInToolIdList []string, assistantToolMap map[string][]string) {
 	// 遍历工具列表，处理每个有效工具
 	for _, tool := range resp {
 		if !tool.Enable {
 			continue // 跳过禁用的工具
 		}
 		if len(assistantToolMap) == 0 {
-			assistantToolMap = make(map[string]*model.AssistantTool)
+			assistantToolMap = make(map[string][]string)
 		}
 		// 根据工具类型获取详情和原始schema
 		switch tool.ToolType {
 		case constant.ToolTypeCustom:
 			customToolIdList = append(customToolIdList, tool.ToolId)
-			assistantToolMap[tool.ToolId] = tool
+			fillToolMap(assistantToolMap, tool)
 		case constant.ToolTypeBuiltIn:
 			builtInToolIdList = append(builtInToolIdList, tool.ToolId)
-			assistantToolMap[tool.ToolId] = tool
+			fillToolMap(assistantToolMap, tool)
 		}
 	}
 	return customToolIdList, builtInToolIdList, assistantToolMap
+}
+
+func fillToolMap(assistantToolMap map[string][]string, tool *model.AssistantTool) {
+	dataList, exist := assistantToolMap[tool.ToolId]
+	if !exist {
+		assistantToolMap[tool.ToolId] = []string{tool.ActionName}
+	} else {
+		dataList = append(dataList, tool.ActionName)
+		assistantToolMap[tool.ToolId] = dataList
+	}
 }
 
 func buildCustomToolPluginList(assistant *model.Assistant, prepareParams *AgentPrepareParams) ([]string, error) {
@@ -115,19 +126,22 @@ func buildCustomToolPluginList(assistant *model.Assistant, prepareParams *AgentP
 		for _, customTool := range prepareParams.CustomToolList {
 			apiAuth, rawSchema := buildCustomToolInfo(assistant, customTool)
 			// 处理schema
-			tool, exist := prepareParams.AssistantToolMap[customTool.CustomToolId]
+			toolActionList, exist := prepareParams.AssistantToolMap[customTool.CustomToolId]
 			if !exist {
 				log.Infof("assistantId: %d, toolId: %s not exist", assistant.ID, customTool.CustomToolId)
 				continue
 			}
-			apiSchema, err := processSchema(context.Background(), rawSchema, tool.ActionName)
-			if err != nil {
-				return pluginList, err
+			for _, actionName := range toolActionList {
+				apiSchema, err := processSchema(context.Background(), rawSchema, actionName)
+				if err != nil {
+					return pluginList, err
+				}
+				pluginList, err = buildPluginList(pluginList, apiSchema, apiAuth)
+				if err != nil {
+					return pluginList, err
+				}
 			}
-			pluginList, err = buildPluginList(pluginList, apiSchema, apiAuth)
-			if err != nil {
-				return pluginList, err
-			}
+
 		}
 	}
 	return pluginList, nil
@@ -165,19 +179,22 @@ func buildToolSquarePluginList(assistant *model.Assistant, prepareParams *AgentP
 		for _, squareTool := range prepareParams.SquareToolList {
 			apiAuth, rawSchema := buildToolSquareInfo(assistant, squareTool)
 			// 处理schema
-			tool, exist := prepareParams.AssistantToolMap[squareTool.Info.ToolSquareId]
+			toolActionList, exist := prepareParams.AssistantToolMap[squareTool.Info.ToolSquareId]
 			if !exist {
 				log.Infof("assistantId: %d, toolId: %s not exist", assistant.ID, squareTool.Info.ToolSquareId)
 				continue
 			}
-			apiSchema, err := processSchema(context.Background(), rawSchema, tool.ActionName)
-			if err != nil {
-				return pluginList, err
+			for _, actionName := range toolActionList {
+				apiSchema, err := processSchema(context.Background(), rawSchema, actionName)
+				if err != nil {
+					return pluginList, err
+				}
+				pluginList, err = buildPluginList(pluginList, apiSchema, apiAuth)
+				if err != nil {
+					return pluginList, err
+				}
 			}
-			pluginList, err = buildPluginList(pluginList, apiSchema, apiAuth)
-			if err != nil {
-				return pluginList, err
-			}
+
 		}
 	}
 	return pluginList, nil

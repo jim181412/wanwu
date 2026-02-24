@@ -29,8 +29,10 @@ type Config struct {
 	DefaultIcon       DefaultIconConfig          `json:"default-icon" mapstructure:"default-icon"`
 	WorkflowTemplate  WorkflowTemplatePathConfig `json:"workflow-template" mapstructure:"workflow-template"`
 	PromptTemplate    PromptTemplatePathConfig   `json:"prompt-template" mapstructure:"prompt-template"`
+	SkillsTemplate    SkillsTemplatePathConfig   `json:"skills-template" mapstructure:"skills-template"`
 	WorkflowTemplates []*WorkflowTemplateConfig  `json:"workflows" mapstructure:"workflows"`
 	PromptTemplates   []*PromptTempConfig        `json:"prompts" mapstructure:"prompts"`
+	AgentSkills       []*SkillsConfig            `json:"skills" mapstructure:"skills"`
 	PromptEngineering PromptEngineeringConfig    `json:"prompt-engineering" mapstructure:"prompt-engineering"`
 	// middleware
 	Minio minio.Config `json:"minio" mapstructure:"minio"`
@@ -109,10 +111,14 @@ type ServiceConfig struct {
 type RagKnowledgeConfig struct {
 	Endpoint               string `json:"endpoint" mapstructure:"endpoint"`
 	ChatEndpoint           string `json:"chat-endpoint" mapstructure:"chat-endpoint"`
+	UploadEndpoint         string `json:"upload-endpoint" mapstructure:"upload-endpoint"`
 	SearchKnowledgeBaseUri string `json:"search-knowledge-base-uri" mapstructure:"search-knowledge-base-uri"`
 	SearchKnowTimeout      int    `json:"search-know-timeout" mapstructure:"search-know-timeout"`
 	SearchQABaseUri        string `json:"search-qa-base-uri" mapstructure:"search-qa-base-uri"`
 	KnowledgeChatUri       string `json:"knowledge-chat-uri" mapstructure:"knowledge-chat-uri"`
+	UploadUri              string `json:"upload-uri" mapstructure:"upload-uri"`
+	UploadBucket           string `json:"upload-bucket" mapstructure:"upload-bucket"`
+	UploadTime             int64  `json:"upload-timeout" mapstructure:"upload-timeout"` //单位s
 }
 
 type DifyKnowledgeConfig struct {
@@ -133,6 +139,10 @@ type WorkflowTemplatePathConfig struct {
 }
 
 type PromptTemplatePathConfig struct {
+	ConfigPath string `json:"configPath" mapstructure:"configPath"`
+}
+
+type SkillsTemplatePathConfig struct {
 	ConfigPath string `json:"configPath" mapstructure:"configPath"`
 }
 
@@ -283,6 +293,7 @@ type DefaultIconConfig struct {
 	McpServerIcon string `json:"mcpServer" mapstructure:"mcpServer"`
 	ToolIcon      string `json:"tool" mapstructure:"tool"`
 	PromptIcon    string `json:"prompt" mapstructure:"prompt"`
+	SkillIcon     string `json:"skill" mapstructure:"skill"`
 }
 
 func LoadConfig(in string) error {
@@ -308,6 +319,16 @@ func LoadConfig(in string) error {
 	promptIn := _c.PromptTemplate.ConfigPath
 	if err := util.LoadConfig(promptIn, _c); err != nil {
 		return fmt.Errorf("load prompt template config err: %v", err)
+	}
+	// 加载skills模板配置
+	skillsIn := _c.SkillsTemplate.ConfigPath
+	if err := util.LoadConfig(skillsIn, _c); err != nil {
+		return fmt.Errorf("load skills template config err: %v", err)
+	}
+	for _, st := range _c.AgentSkills {
+		if err := st.load(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -348,6 +369,15 @@ func (c *Config) PromptTemp(templateId string) (PromptTempConfig, bool) {
 		}
 	}
 	return PromptTempConfig{}, false
+}
+
+func (c *Config) AgentSkill(skillId string) (SkillsConfig, bool) {
+	for _, stf := range c.AgentSkills {
+		if stf.SkillId == skillId {
+			return *stf, true
+		}
+	}
+	return SkillsConfig{}, false
 }
 
 func (c *Config) GetModelsMap() map[string]*ModelConfig {

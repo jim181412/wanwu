@@ -1,5 +1,8 @@
 import sys
 import os
+
+from logging_config import init_logging
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import mq_rel_utils
@@ -8,7 +11,7 @@ import json
 import chardet
 import requests
 import threading
-from logging_config import setup_logging
+import logging
 from settings import KAFKA_BOOTSTRAP_SERVERS, KAFKA_SASL_PLAIN_USERNAME, KAFKA_SASL_PLAIN_PASSWORD
 
 from selenium import webdriver
@@ -25,11 +28,7 @@ CHROME_DIR = os.path.abspath('/opt')
 TEMP_URL_FILES_DIR = os.path.join(os.path.dirname(__name__), 'temp_url_files')
 os.makedirs(TEMP_URL_FILES_DIR, exist_ok=True)
 
-
-logger_name='url_batch_parse'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
+logger = logging.getLogger(__name__)
 
 # Kafka配置
 KAFKA_TOPIC = 'url-batch-a-prod'
@@ -166,5 +165,6 @@ def url_ana(url, task_id):
 
 
 if __name__ == "__main__":
+    init_logging()
     kafkal()
 

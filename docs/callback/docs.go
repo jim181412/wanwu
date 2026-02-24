@@ -381,7 +381,7 @@ const docTemplate = `{
         "/model/{modelId}/asr": {
             "post": {
                 "consumes": [
-                    "multipart/form-data"
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -399,25 +399,20 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "file",
-                        "description": "语音文件",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "请求参数",
-                        "name": "config",
-                        "in": "formData",
-                        "required": true
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mp_common.SyncAsrReq"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mp_common.AsrResp"
+                            "$ref": "#/definitions/mp_common.SyncAsrResp"
                         }
                     }
                 }
@@ -746,47 +741,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/model/{modelId}/text2image": {
-            "post": {
-                "consumes": [
-                    "multipart/form-data",
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "callback"
-                ],
-                "summary": "Model Text-to-Image",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "模型ID",
-                        "name": "modelId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "请求参数",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mp_common.Text2ImageReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mp_common.Text2ImageResp"
-                        }
-                    }
-                }
-            }
-        },
         "/rag/knowledge/stream/search": {
             "post": {
                 "description": "知识库流式问答",
@@ -884,63 +838,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/tool/builtin/asr": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "callback"
-                ],
-                "summary": "语音文件（base64格式）转文本内置工具服务",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "语音文件 base64",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "请求参数",
-                        "name": "config",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "api token",
-                        "name": "apiKey",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            ]
                         }
                     }
                 }
@@ -1319,57 +1216,6 @@ const docTemplate = `{
                 },
                 "providerYuanJing": {
                     "$ref": "#/definitions/mp.ProviderModelByYuanjing"
-                }
-            }
-        },
-        "mp_common.AsrResp": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "integer"
-                },
-                "msg": {
-                    "type": "string"
-                },
-                "result": {
-                    "$ref": "#/definitions/mp_common.AsrResult"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "uuid": {
-                    "type": "string"
-                }
-            }
-        },
-        "mp_common.AsrResult": {
-            "type": "object",
-            "properties": {
-                "diarization": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/mp_common.DiarizationObj"
-                    }
-                }
-            }
-        },
-        "mp_common.DiarizationObj": {
-            "type": "object",
-            "properties": {
-                "end": {
-                    "type": "number"
-                },
-                "speaker": {
-                    "type": "integer"
-                },
-                "start": {
-                    "type": "number"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "trans": {
-                    "type": "string"
                 }
             }
         },
@@ -1964,10 +1810,16 @@ const docTemplate = `{
                         "$ref": "#/definitions/mp_common.OcrData"
                     }
                 },
+                "filename": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                },
+                "sha1": {
                     "type": "string"
                 },
                 "time_cost": {
@@ -1993,40 +1845,7 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "parameters": {
-                    "$ref": "#/definitions/mp_common.OpenAIFunctionParameters"
-                }
-            }
-        },
-        "mp_common.OpenAIFunctionParameters": {
-            "type": "object",
-            "properties": {
-                "properties": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "$ref": "#/definitions/mp_common.OpenAIFunctionParametersProperty"
-                    }
-                },
-                "required": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "mp_common.OpenAIFunctionParametersProperty": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
+                "parameters": {}
             }
         },
         "mp_common.OpenAIMsg": {
@@ -2183,10 +2002,16 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
+                "prefix_image_url": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
                 "trace_id": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }
@@ -2232,6 +2057,23 @@ const docTemplate = `{
                 }
             }
         },
+        "mp_common.SegmentedContent": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "speaker": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "mp_common.StreamOptions": {
             "type": "object",
             "properties": {
@@ -2243,11 +2085,131 @@ const docTemplate = `{
                 }
             }
         },
-        "mp_common.T2IUsage": {
+        "mp_common.SyncAsrAudio": {
             "type": "object",
             "properties": {
-                "total_patches": {
+                "data": {
+                    "type": "string"
+                },
+                "fileName": {
+                    "type": "string"
+                }
+            }
+        },
+        "mp_common.SyncAsrReq": {
+            "type": "object",
+            "required": [
+                "messages",
+                "model"
+            ],
+            "properties": {
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mp_common.SyncAsrReqMsg"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "mp_common.SyncAsrReqC": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/mp_common.SyncAsrAudio"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "mp_common.SyncAsrReqMsg": {
+            "type": "object",
+            "required": [
+                "content",
+                "role"
+            ],
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mp_common.SyncAsrReqC"
+                    }
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "mp_common.SyncAsrReqMsgRespChoice": {
+            "type": "object",
+            "properties": {
+                "finish_reason": {
+                    "type": "string"
+                },
+                "message": {
+                    "$ref": "#/definitions/mp_common.SyncAsrRespMsg"
+                }
+            }
+        },
+        "mp_common.SyncAsrResp": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mp_common.SyncAsrReqMsgRespChoice"
+                    }
+                },
+                "code": {
                     "type": "integer"
+                },
+                "seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mp_common.SyncAsrRespMsg": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mp_common.SyncAsrRespMsgC"
+                    }
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "role": {
+                    "$ref": "#/definitions/mp_common.MsgRole"
+                }
+            }
+        },
+        "mp_common.SyncAsrRespMsgC": {
+            "type": "object",
+            "properties": {
+                "segmented_content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mp_common.SegmentedContent"
+                    }
+                },
+                "text": {
+                    "type": "string"
                 }
             }
         },
@@ -2256,50 +2218,6 @@ const docTemplate = `{
             "properties": {
                 "text": {
                     "type": "string"
-                }
-            }
-        },
-        "mp_common.Text2ImageReq": {
-            "type": "object",
-            "required": [
-                "prompt"
-            ],
-            "properties": {
-                "advanced_opt": {
-                    "description": "高级选项参数 json, {\"height\": 512, \"width\": 512, \"num_images_per_prompt\": 1, \"style\": \"摄影\"}",
-                    "type": "string"
-                },
-                "prompt": {
-                    "description": "提示词",
-                    "type": "string"
-                },
-                "report_url": {
-                    "description": "参考",
-                    "type": "string"
-                },
-                "response_format": {
-                    "description": "“url” or “b64_json”,默认b64_json",
-                    "type": "string"
-                }
-            }
-        },
-        "mp_common.Text2ImageResp": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "integer"
-                },
-                "msg": {
-                    "type": "string"
-                },
-                "result": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "usage": {
-                    "$ref": "#/definitions/mp_common.T2IUsage"
                 }
             }
         },
@@ -2430,6 +2348,10 @@ const docTemplate = `{
                         "toolCall"
                     ]
                 },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
+                },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
                     "type": "integer"
@@ -2475,6 +2397,10 @@ const docTemplate = `{
                         "noSupport",
                         "toolCall"
                     ]
+                },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
                 },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
@@ -2529,6 +2455,10 @@ const docTemplate = `{
                         "noSupport",
                         "toolCall"
                     ]
+                },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
                 },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
@@ -2655,6 +2585,10 @@ const docTemplate = `{
                         "toolCall"
                     ]
                 },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
+                },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
                     "type": "integer"
@@ -2726,6 +2660,10 @@ const docTemplate = `{
                         "toolCall"
                     ]
                 },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
+                },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
                     "type": "integer"
@@ -2796,6 +2734,10 @@ const docTemplate = `{
                         "noSupport",
                         "toolCall"
                     ]
+                },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
                 },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
@@ -2880,6 +2822,10 @@ const docTemplate = `{
                         "noSupport",
                         "toolCall"
                     ]
+                },
+                "maxImageSize": {
+                    "description": "最大图片大小限制",
+                    "type": "integer"
                 },
                 "maxTokens": {
                     "description": "模型回答最大tokens",
@@ -3257,9 +3203,27 @@ const docTemplate = `{
                 }
             }
         },
+        "request.RagKnowledgeAttachment": {
+            "type": "object",
+            "properties": {
+                "file_type": {
+                    "type": "string"
+                },
+                "file_url": {
+                    "type": "string"
+                }
+            }
+        },
         "request.RagKnowledgeChatReq": {
             "type": "object",
             "properties": {
+                "attachment_files": {
+                    "description": "上传的多模态文件",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/request.RagKnowledgeAttachment"
+                    }
+                },
                 "auto_citation": {
                     "description": "是否自动角标",
                     "type": "boolean"
@@ -3270,6 +3234,10 @@ const docTemplate = `{
                 },
                 "custom_model_info": {
                     "$ref": "#/definitions/request.CustomModelInfo"
+                },
+                "enable_vision": {
+                    "description": "召回结果是否包含多模态文件",
+                    "type": "boolean"
                 },
                 "history": {
                     "type": "array",
@@ -3397,12 +3365,22 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "knowledgeIdList",
-                "question",
                 "userId"
             ],
             "properties": {
+                "attachment_files": {
+                    "description": "上传的多模态文件",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/request.RagKnowledgeAttachment"
+                    }
+                },
                 "auto_citation": {
                     "description": "是否启动知识图谱查询",
+                    "type": "boolean"
+                },
+                "enable_vision": {
+                    "description": "召回结果是否包含多模态文件",
                     "type": "boolean"
                 },
                 "knowledgeIdList": {
@@ -3857,6 +3835,9 @@ const docTemplate = `{
                 },
                 "publishDate": {
                     "description": "模型发布时间",
+                    "type": "string"
+                },
+                "scopeType": {
                     "type": "string"
                 },
                 "tags": {

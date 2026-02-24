@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	"github.com/UnicomAI/wanwu/api/proto/common"
 	params_process "github.com/UnicomAI/wanwu/internal/assistant-service/service/params-process"
@@ -49,10 +50,13 @@ func (a *AgentChatParamsBuilder) AgentBaseParams() *AgentChatParamsBuilder {
 	if a.err != nil {
 		return a
 	}
+	assistant := a.agent.Assistant
 	a.params.AgentBaseParams = &assistant_service.AgentBaseParams{
-		Name:        a.agent.Assistant.Name,
-		Description: a.agent.Assistant.Desc,
-		Instruction: a.agent.Assistant.Instructions,
+		Name:        assistant.Name,
+		Description: assistant.Desc,
+		Instruction: assistant.Instructions,
+		AgentId:     assistant.UUID,
+		Avatar:      assistant.AvatarPath,
 	}
 	return a
 }
@@ -76,7 +80,7 @@ func (a *AgentChatParamsBuilder) ModelParams() *AgentChatParamsBuilder {
 	_, modelParams, _ := mp.ToModelParams(modelConfig.Provider, modelConfig.ModelType, modelConfig.Config)
 	buildModelParams(modelParams, params)
 
-	if a.userQueryParams != nil && a.userQueryParams.ConversationId != "" {
+	if a.userQueryParams != nil && a.userQueryParams.ConversationId != "" && !a.agent.Draft {
 		a.postProcessList = append(a.postProcessList, params_process.ConversionHistoryType)
 	}
 

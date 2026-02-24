@@ -3,13 +3,14 @@ package grpc_consumer
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"time"
+
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg"
 	agent_log "github.com/UnicomAI/wanwu/internal/agent-service/pkg/agent-log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"runtime"
-	"time"
 )
 
 const (

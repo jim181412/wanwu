@@ -1,0 +1,619 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "通义万相 (Wan) 多模态工具",
+    "description": "基于通义万相大模型的图像生成、图像编辑和视频生成工具。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://callback-wanwu:8669/v1",
+      "description": "Base URL"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Tongyi Multi-Modal",
+      "description": "通义万相多模态工具"
+    }
+  ],
+  "paths": {
+    "/wan-t2i/wan2.6-t2i": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义万相文生图: wan2.6-t2i",
+        "description": "根据文本提示词生成图像。",
+        "operationId": "wan26_t2i",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "正向提示词,用于描述期望生成的图像内容、风格和构图。支持中英文,长度不超过2100个字符。",
+                    "example": "一只在太空中飞翔的猫，赛博朋克风格",
+                    "maxLength": 2100
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "反向提示词,用于描述不希望在图像中出现的内容,对画面进行限制。支持中英文,长度不超过500个字符。",
+                    "default": "",
+                    "example": "模糊，低质量",
+                    "maxLength": 500
+                  },
+                  "size": {
+                    "type": "string",
+                    "description": "输出图像的分辨率，格式为宽*高。总像素在 [1280*1280, 1440*1440] 之间,推荐的分辨率1280*1280、1104*1472、1472*1104、960*1696、1696*960。",
+                    "default": "1280*1280",
+                    "example": "1280*1280"
+                  },
+                  "n": {
+                    "type": "integer",
+                    "description": "生成数量",
+                    "default": 1,
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "生成任务提交成功/生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": { "type": "string" },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "finished": { "type": "boolean" },
+                        "choices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "finish_reason": { "type": "string" },
+                              "message": {
+                                "type": "object",
+                                "properties": {
+                                  "role": { "type": "string" },
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": { "type": "string" },
+                                        "image": { "type": "string", "format": "uri" }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "image_count": { "type": "integer" },
+                        "input_tokens": { "type": "integer" },
+                        "output_tokens": { "type": "integer" },
+                        "total_tokens": { "type": "integer" },
+                        "size": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wan-i2i/wan2.6-image": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义万相图片编辑: wan2.6-image",
+        "description": "调用通义进行图片编辑 (Image-to-Image)。",
+        "operationId": "wan26_image",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt",
+                  "images"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "编辑指令 (正向提示词), 用于描述期望对原图进行的修改内容。",
+                    "example": "参考图1的风格和图2的背景，生成番茄炒蛋"
+                  },
+                  "images": {
+                    "type": "array",
+                    "description": "输入图像的 URL 或 Base64 编码数据。支持传入1-3张图像。多图输入时,按照数组顺序定义图像顺序。",
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "example": [
+                      "https://cdn.wanx.aliyuncs.com/tmp/pressure/umbrella1.png",
+                      "https://img.alicdn.com/imgextra/i3/O1CN01SfG4J41UYn9WNt4X1_!!6000000002530-49-tps-1696-960.webp"
+                    ]
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "反向提示词, 用于描述不希望在图像中出现的内容。",
+                    "default": "",
+                    "example": "模糊，低质量，变形"
+                  },
+                  "size": {
+                    "type": "string",
+                    "description": "输出图像分辨率格式为“宽*高”。支持多种比例，宽高范围[512,2048]。",
+                    "default": "1280*1280",
+                    "example": "1280*1280"
+                  },
+                  "n": {
+                    "type": "integer",
+                    "description": "生成数量",
+                    "default": 1,
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "生成任务提交成功/生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string"
+                    },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "finished": {
+                          "type": "boolean"
+                        },
+                        "choices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "finish_reason": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "object",
+                                "properties": {
+                                  "role": {
+                                    "type": "string"
+                                  },
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string"
+                                        },
+                                        "image": {
+                                          "type": "string",
+                                          "format": "uri"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "image_count": {
+                          "type": "integer"
+                        },
+                        "input_tokens": {
+                          "type": "integer"
+                        },
+                        "output_tokens": {
+                          "type": "integer"
+                        },
+                        "total_tokens": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wan-i2v/wan2.6-i2v-flash": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义万相图生视频: wan2.6-i2v-flash",
+        "description": "根据首帧图像和文本提示词，生成一段流畅的视频。",
+        "operationId": "wan26_i2v_flash",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "文本提示词。用来描述生成图像中期望包含的元素和视觉特点。",
+                    "example": "一幅都市奇幻艺术的场景..."
+                  },
+                  "image": {
+                    "type": "string",
+                    "description": "首帧图像的URL或 Base64 编码数据。图像格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。",
+                    "example": "https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20250925/wpimhv/rap.png"
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "负向提示词，描述不希望出现的内容。",
+                    "default": "",
+                    "example": "模糊，变形，水印"
+                  },
+                  "audio_url": {
+                    "type": "string",
+                    "description": "(可选) 音频文件的 URL，模型将使用该音频生成视频。格式为wav、mp3。",
+                    "format": "uri",
+                    "example": "https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20250925/ozwpvi/rap.mp3"
+                  },
+                  "resolution": {
+                    "type": "string",
+                    "description": "指定生成的视频分辨率档位，用于调整视频的清晰度（总像素），可选值为720P、1080P。默认值为1080P。",
+                    "default": "1080p",
+                    "enum": [
+                      "720P",
+                      "1080P",
+                      "720p",
+                      "1080p"
+                    ],
+                    "example": "1080p"
+                  },
+                  "duration": {
+                    "type": "integer",
+                    "description": "视频时长 (秒)。默认为5秒，范围为2到15秒。",
+                    "default": 5,
+                    "minimum": 2,
+                    "maximum": 15,
+                    "example": 5
+                  },
+                  "template": {
+                    "type": "string",
+                    "description": "(可选) 视频特效模板的名称。若未填写，表示不使用任何视频特效。"
+                  },
+                  "shot_type": {
+                    "type": "string",
+                    "description": "指定生成视频的镜头类型。single (默认) 输出单镜头视频，multi 输出多镜头视频。",
+                    "default": "single",
+                    "enum": [
+                      "single",
+                      "multi"
+                    ],
+                    "example": "single"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "视频生成任务状态查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status_code": { "type": "integer" },
+                    "request_id": { "type": "string" },
+                    "code": { "type": "string", "nullable": true },
+                    "message": { "type": "string" },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "task_id": { "type": "string" },
+                        "task_status": { "type": "string" },
+                        "video_url": { "type": "string", "format": "uri" },
+                        "submit_time": { "type": "string" },
+                        "scheduled_time": { "type": "string" },
+                        "end_time": { "type": "string" },
+                        "orig_prompt": { "type": "string" }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "video_count": { "type": "integer" },
+                        "video_duration": { "type": "integer" },
+                        "video_ratio": { "type": "string" },
+                        "duration": { "type": "integer" },
+                        "input_video_duration": { "type": "integer" },
+                        "output_video_duration": { "type": "integer" },
+                        "audio": { "type": "boolean" },
+                        "SR": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wan-i2v/wan2.2-kf2v-flash": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义万相首尾帧生成视频: wan2.2-kf2v-flash",
+        "description": "根据首帧图像、尾帧图像和文本提示词，生成一段流畅的视频。",
+        "operationId": "wan22_kf2v_flash",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "first_frame_image"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "文本提示词。用来描述生成图像中期望包含的元素和视觉特点。",
+                    "example": "写实风格，一只黑色小猫好奇地看向天空，镜头从平视逐渐上升，最后俯拍它的好奇的眼神。"
+                  },
+                  "first_frame_image": {
+                    "type": "string",
+                    "description": "首帧图像的URL或 Base64 编码数据。图像格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。",
+                    "example": "https://wanx.alicdn.com/material/20250318/first_frame.png"
+                  },
+                  "last_frame_image": {
+                    "type": "string",
+                    "description": "尾帧图像的URL或 Base64 编码数据。图像格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。",
+                    "example": "https://wanx.alicdn.com/material/20250318/last_frame.png"
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "负向提示词，描述不希望出现的内容。",
+                    "default": "",
+                    "example": "模糊，变形，水印"
+                  },
+                  "resolution": {
+                    "type": "string",
+                    "description": "指定生成的视频分辨率档位，用于调整视频的清晰度（总像素），可选值为720P、1080P。默认值为1080P。",
+                    "default": "1080P",
+                    "enum": [
+                      "720P",
+                      "1080P"
+                    ],
+                    "example": "1080P"
+                  },
+                  "duration": {
+                    "type": "integer",
+                    "description": "视频时长 (秒)。固定为5秒，不支持修改。",
+                    "default": 5,
+                    "enum": [
+                      5
+                    ],
+                    "example": 5
+                  },
+                  "template": {
+                    "type": "string",
+                    "description": "(可选) 视频特效模板的名称。若未填写，表示不使用任何视频特效。支持 flying, dissolve。",
+                    "enum": [
+                      "flying",
+                      "dissolve"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "视频生成任务成功/查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status_code": { "type": "integer" },
+                    "request_id": { "type": "string" },
+                    "code": { "type": "string", "nullable": true },
+                    "message": { "type": "string" },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "task_id": { "type": "string" },
+                        "task_status": { "type": "string" },
+                        "video_url": { "type": "string", "format": "uri" },
+                        "submit_time": { "type": "string" },
+                        "scheduled_time": { "type": "string" },
+                        "end_time": { "type": "string" },
+                        "orig_prompt": { "type": "string" },
+                        "actual_prompt": { "type": "string" }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "video_count": { "type": "integer" },
+                        "video_duration": { "type": "integer" },
+                        "video_ratio": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wan-t2v/wan2.6-t2v": {
+      "post": {
+        "tags": [
+          "Tongyi Multi-Modal"
+        ],
+        "summary": "通义万相文生视频: wan2.6-t2v",
+        "description": "通义万相文生视频模型基于文本提示词，生成一段流畅的视频。",
+        "operationId": "wan26_t2v",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "文本提示词。用来描述生成图像中期望包含的元素和视觉特点。",
+                    "example": "一只猫在草地上奔跑，高清，电影质感"
+                  },
+                  "negative_prompt": {
+                    "type": "string",
+                    "description": "负向提示词，描述不希望出现的内容。",
+                    "default": "",
+                    "example": "模糊，变形"
+                  },
+                  "audio_url": {
+                    "type": "string",
+                    "description": "(可选) 音频文件的 URL，模型将使用该音频生成视频。格式为wav、mp3。",
+                    "format": "uri",
+                    "example": "https://example.com/audio.mp3"
+                  },
+                  "size": {
+                    "type": "string",
+                    "description": "指定生成的视频分辨率，格式为宽*高，默认值为1280*720。",
+                    "default": "1280*720",
+                    "example": "1280*720"
+                  },
+                  "duration": {
+                    "type": "integer",
+                    "description": "视频时长 (秒)。默认为5秒，范围为2到15秒。",
+                    "default": 5,
+                    "minimum": 2,
+                    "maximum": 15,
+                    "example": 5
+                  },
+                  "template": {
+                    "type": "string",
+                    "description": "(可选) 视频特效模板的名称。若未填写，表示不使用任何视频特效。"
+                  },
+                  "shot_type": {
+                    "type": "string",
+                    "description": "指定生成视频的镜头类型。single (默认) 输出单镜头视频，multi 输出多镜头视频。",
+                    "default": "single",
+                    "enum": [
+                      "single",
+                      "multi"
+                    ],
+                    "example": "single"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "视频生成任务成功/查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status_code": { "type": "integer" },
+                    "request_id": { "type": "string" },
+                    "code": { "type": "string", "nullable": true },
+                    "message": { "type": "string" },
+                    "output": {
+                      "type": "object",
+                      "properties": {
+                        "task_id": { "type": "string" },
+                        "task_status": { "type": "string" },
+                        "video_url": { "type": "string", "format": "uri" },
+                        "submit_time": { "type": "string" },
+                        "scheduled_time": { "type": "string" },
+                        "end_time": { "type": "string" },
+                        "orig_prompt": { "type": "string" }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "video_count": { "type": "integer" },
+                        "video_duration": { "type": "integer" },
+                        "video_ratio": { "type": "string" },
+                        "duration": { "type": "integer" },
+                        "size": { "type": "string" },
+                        "input_video_duration": { "type": "integer" },
+                        "output_video_duration": { "type": "integer" },
+                        "SR": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

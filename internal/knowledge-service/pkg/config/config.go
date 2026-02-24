@@ -113,6 +113,9 @@ type UsageLimitConfig struct {
 	FileTypes                    string `mapstructure:"file-types" json:"fileTypes"`
 	MaxFileSize                  int64  `mapstructure:"max-file-size" json:"maxFileSize"` //单位：字节
 	CompressedFileType           string `mapstructure:"compressed-file-type" json:"compressedFileType"`
+	AudioTypes                   string `mapstructure:"audio-types" json:"audioTypes"`
+	VideoTypes                   string `mapstructure:"video-types" json:"videoTypes"`
+	ImageTypes                   string `mapstructure:"image-types" json:"imageTypes"`
 	MaxNumberOfFilesInCompressed int64  `mapstructure:"max-number-of-files-in-compressed" json:"maxNumberOfFilesInCompressed"`
 	FileSizeLimit                int64  `mapstructure:"file-size-limit" json:"fileSizeLimit"`
 	TxtSizeLimit                 int64  `mapstructure:"txt-size-limit" json:"txtSizeLimit"`

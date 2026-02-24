@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 
 	err_code "github.com/UnicomAI/wanwu/api/proto/err-code"
@@ -12,7 +11,6 @@ import (
 	"github.com/UnicomAI/wanwu/internal/bff-service/pkg/ahocorasick"
 	"github.com/UnicomAI/wanwu/pkg/constant"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
-	"github.com/UnicomAI/wanwu/pkg/log"
 	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
 	"github.com/UnicomAI/wanwu/pkg/util"
 	"github.com/gin-gonic/gin"
@@ -77,46 +75,45 @@ func CallRagChatStream(ctx *gin.Context, userId, orgId string, req request.ChatR
 			UserId: userId,
 			OrgId:  orgId,
 		},
-		Publish: util.IfElse(needLatestPublished, int32(1), int32(0)),
+		Publish:      util.IfElse(needLatestPublished, int32(1), int32(0)),
+		FileInfoList: buildRagFileInfoList(req.FileInfo),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	firstResp, err := stream.Recv()
+	//读取结果
+	SSEReader := &sse_util.SSEReader[rag_service.ChatRagResp]{
+		BusinessKey:    "chat_rag",
+		StreamReceiver: sse_util.NewGrpcStreamReceiver(stream),
+	}
+	rawCh, err := SSEReader.ReadStreamWithBuilder(ctx, func(resp *rag_service.ChatRagResp) string {
+		return resp.Content
+	})
 	if err != nil {
-		if err == io.EOF {
-			// 流已经结束，没有数据
-			return nil, err
-		}
 		return nil, err
 	}
 
-	rawCh := make(chan string, 128)
-	go func() {
-		defer util.PrintPanicStack()
-		defer close(rawCh)
-		log.Infof("[RAG] %v user %v org %v start, query: %s", req.RagID, userId, orgId, req.Question)
-		rawCh <- firstResp.Content
-		for {
-			s, err := stream.Recv()
-			if err == io.EOF {
-				log.Infof("[RAG] %v user %v org %v stop", req.RagID, userId, orgId)
-				break
-			}
-			if err != nil {
-				log.Errorf("[RAG] %v user %v org %v recv err: %v", req.RagID, userId, orgId, err)
-				break
-			}
-			rawCh <- s.Content
-		}
-	}()
 	if !ragInfo.SensitiveConfig.GetEnable() {
 		return rawCh, nil
 	}
 	// 敏感词过滤
 	retCh := ProcessSensitiveWords(ctx, rawCh, matchDicts, &ragSensitiveService{})
 	return retCh, nil
+}
+
+func buildRagFileInfoList(fileInfoList []request.ConversionStreamFile) []*rag_service.FileInfo {
+	retList := make([]*rag_service.FileInfo, 0)
+	if len(fileInfoList) > 0 {
+		for _, fileInfo := range fileInfoList {
+			retList = append(retList, &rag_service.FileInfo{
+				FileName: fileInfo.FileName,
+				FileSize: fileInfo.FileSize,
+				FileUrl:  fileInfo.FileUrl,
+			})
+		}
+	}
+	return retList
 }
 
 // buildRagChatRespLineProcessor 构造rag对话结果行处理器

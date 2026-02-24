@@ -53,18 +53,26 @@ type KnowledgeHitData struct {
 }
 
 type ChunkSearchList struct {
-	Title            string          `json:"title"`
-	Snippet          string          `json:"snippet"`
-	KbName           string          `json:"kb_name"`
-	MetaData         interface{}     `json:"meta_data"`
-	ChildContentList []*ChildContent `json:"child_content_list"`
-	ChildScore       []float64       `json:"child_score"`
-	ContentType      string          `json:"content_type"` // graph：知识图谱（文本）, text：文档分段（文本）, community_report：社区报告（markdown）
+	Title            string           `json:"title"`
+	Snippet          string           `json:"snippet"`
+	KbName           string           `json:"kb_name"`
+	MetaData         interface{}      `json:"meta_data"`
+	ChildContentList []*ChildContent  `json:"child_content_list"`
+	ChildScore       []float64        `json:"child_score"`
+	ContentType      string           `json:"content_type"` // graph：知识图谱（文本）, text：文档分段（文本）, community_report：社区报告（markdown）
+	Score            float64          `json:"score"`
+	RerankInfo       []*RagRerankInfo `json:"rerank_info"`
 }
 
 type ChildContent struct {
 	ChildSnippet string  `json:"child_snippet"`
 	Score        float64 `json:"score"`
+}
+
+type RagRerankInfo struct {
+	Type    string  `json:"type"`
+	FileUrl string  `json:"file_url"`
+	Score   float64 `json:"score"`
 }
 
 type RagKnowledgeSearchContext struct {
@@ -294,8 +302,12 @@ func localKnowledgeHit(ctx *gin.Context, req *request.RagSearchKnowledgeBaseReq,
 
 // buildLocalHitParams 构造本地查查询请求参数，注意深copy问题
 func buildLocalHitParams(req *request.RagSearchKnowledgeBaseReq, knowledgeList []*response.KnowledgeInfo) *request.RagSearchKnowledgeBaseReq {
-	knowledgeUser := buildUserKnowledgeList(knowledgeList)
+	knowledgeUser, enableVision := buildUserKnowledgeList(knowledgeList)
 	req.KnowledgeUser = knowledgeUser
+	req.EnableVision = enableVision
+	if req.AttachmentFiles == nil || !req.EnableVision {
+		req.AttachmentFiles = make([]*request.RagKnowledgeAttachment, 0)
+	}
 	return req
 }
 

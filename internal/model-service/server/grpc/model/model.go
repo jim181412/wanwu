@@ -6,6 +6,7 @@ import (
 	errs "github.com/UnicomAI/wanwu/api/proto/err-code"
 	model_service "github.com/UnicomAI/wanwu/api/proto/model-service"
 	"github.com/UnicomAI/wanwu/internal/model-service/client/model"
+	"github.com/UnicomAI/wanwu/internal/model-service/config"
 	"github.com/UnicomAI/wanwu/pkg/util"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -128,7 +129,28 @@ func (s *Service) ListModels(ctx context.Context, req *model_service.ListModelsR
 	if err != nil {
 		return nil, errStatus(errs.Code_ModelListModels, err)
 	}
-	return toModelInfos(modelInfos), nil
+	// 筛选公有模型/个人模型
+	modelsInfoFiltered := make([]*model.ModelImported, 0, len(modelInfos))
+	targetScopes := make(map[string]struct{})
+	switch req.ScopeType {
+	case config.ScopeTypeStr_PRIVATE:
+		targetScopes[config.ModelScopeTypePrivate] = struct{}{}
+	case config.ScopeTypeStr_PUBLIC:
+		targetScopes[config.ModelScopeTypePublic] = struct{}{}
+		targetScopes[config.ModelScopeTypeOrg] = struct{}{}
+	default:
+		modelsInfoFiltered = modelInfos
+		return toModelInfos(modelsInfoFiltered), nil
+	}
+
+	for _, modelInfo := range modelInfos {
+		scopeTypeStr := util.Int2Str(modelInfo.ScopeType)
+		if _, ok := targetScopes[scopeTypeStr]; ok {
+			modelsInfoFiltered = append(modelsInfoFiltered, modelInfo)
+		}
+	}
+
+	return toModelInfos(modelsInfoFiltered), nil
 }
 
 func (s *Service) ListTypeModels(ctx context.Context, req *model_service.ListTypeModelsReq) (*model_service.ModelInfos, error) {
@@ -162,6 +184,7 @@ func toModelInfo(modelInfo *model.ModelImported) *model_service.ModelInfo {
 		CreatedAt:      modelInfo.CreatedAt,
 		UpdatedAt:      modelInfo.UpdatedAt,
 		ModelDesc:      modelInfo.ModelDesc,
+		ScopeType:      util.Int2Str(modelInfo.ScopeType),
 	}
 }
 

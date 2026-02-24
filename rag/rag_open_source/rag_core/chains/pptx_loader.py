@@ -4,23 +4,6 @@ from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_community.document_loaders import TextLoader
 
-import os
-import nltk
-current_file_path = os.path.abspath(__file__)
-# 获取当前文件所在的目录
-current_dir = os.path.dirname(current_file_path)
-# 添加项目根目录到 sys.path
-# sys.path.append(root_dir)
-# 拼接nltk_data文件夹的路径
-nltk_data_path = os.path.join(current_dir, 'nltk_data')
-nltk.data.path.append(nltk_data_path)
-# import minio_utils
-from logging_config import setup_logging
-logger_name = 'rag_pptx_loader'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
-
 
 def table_convert_html(table):
     # embedding_content = []

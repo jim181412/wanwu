@@ -16,7 +16,7 @@ func (KnowledgeContentBuilder) MessageType() RagMessageType {
 
 func (KnowledgeContentBuilder) Build(ctx context.Context, ragContext *RagContext) *RagEvent {
 	//  请求rag
-	buildParams, err := rag_manage_service.BuildChatConsultParams(ragContext.Req, ragContext.Rag, ragContext.KnowledgeIDToName, ragContext.KnowledgeIds)
+	buildParams, err := rag_manage_service.BuildChatConsultParams(ragContext.Req, ragContext.Rag, ragContext.KnowledgeIDToName, ragContext.KnowledgeIds, ragContext.EnableVision)
 	if err != nil {
 		log.Errorf("errk = %s", err.Error())
 		return &RagEvent{

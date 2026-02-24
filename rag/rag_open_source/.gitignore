@@ -5,7 +5,9 @@
 **/*.swp
 **/.DS_Store
 
+
 logs/*
+log/logs/*
 rag_core/logs/*
 rag_core/data/*
 rag_core/parser_data/*

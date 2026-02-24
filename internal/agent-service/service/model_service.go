@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
 	"time"
 
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/config"
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/http"
+	service_model "github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
 	http_client "github.com/UnicomAI/wanwu/pkg/http-client"
 	"github.com/UnicomAI/wanwu/pkg/log"
 )

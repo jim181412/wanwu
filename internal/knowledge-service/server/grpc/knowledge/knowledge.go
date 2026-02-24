@@ -168,7 +168,10 @@ func (s *Service) DeleteKnowledge(ctx context.Context, req *knowledgebase_servic
 // KnowledgeHit 知识库命中测试
 func (s *Service) KnowledgeHit(ctx context.Context, req *knowledgebase_service.KnowledgeHitReq) (*knowledgebase_service.KnowledgeHitResp, error) {
 	// 1.获取知识库信息列表
-	if len(req.KnowledgeList) == 0 || req.Question == "" || req.KnowledgeMatchParams == nil {
+	if len(req.KnowledgeList) == 0 || req.KnowledgeMatchParams == nil {
+		return nil, util.ErrCode(errs.Code_KnowledgeInvalidArguments)
+	}
+	if len(req.DocInfoList) == 0 && req.Question == "" {
 		return nil, util.ErrCode(errs.Code_KnowledgeInvalidArguments)
 	}
 	var knowledgeIdList []string
@@ -762,8 +765,22 @@ func buildRagHitParams(req *knowledgebase_service.KnowledgeHitReq, list []*model
 		MetaFilter:           filterEnable,
 		MetaFilterConditions: metaParams,
 		UseGraph:             matchParams.UseGraph,
+		AttachmentList:       buildAttachmentList(req.DocInfoList),
 	}
 	return ret, nil
+}
+
+func buildAttachmentList(attachmentFiles []*knowledgebase_service.DocFileInfo) []*rag_service.AttachmentInfo {
+	retList := make([]*rag_service.AttachmentInfo, 0)
+	if len(attachmentFiles) > 0 {
+		for _, attachment := range attachmentFiles {
+			retList = append(retList, &rag_service.AttachmentInfo{
+				FileType: "image",
+				FileUrl:  attachment.DocUrl,
+			})
+		}
+	}
+	return retList
 }
 
 func buildRagHitMetaParams(req *knowledgebase_service.KnowledgeHitReq, knowledgeIDToName map[string]string) (bool, []*rag_service.MetadataFilterItem, error) {
@@ -1063,7 +1080,7 @@ func buildKnowledgeGraphSwitch(graphSwitch bool) int {
 }
 
 // buildKnowledgeList 构造知识库名称
-func buildKnowledgeList(knowledgeList []*model.KnowledgeBase) (knowledgeIdList []string, knowledgeNameList []string) {
+func buildKnowledgeList(knowledgeList []*model.KnowledgeBase) (knowledgeIdList, knowledgeNameList []string) {
 	if len(knowledgeList) == 0 {
 		return make([]string, 0), make([]string, 0)
 	}
@@ -1100,6 +1117,8 @@ func buildKnowledgeBaseHitResp(ragKnowledgeHitResp *rag_service.RagKnowledgeHitR
 				ChildContentList: childContentList,
 				ChildScore:       childScore,
 				ContentType:      search.ContentType,
+				Score:            float32(search.Score),
+				RerankInfo:       buildRerankInfo(search.RerankInfo),
 			})
 		}
 	}
@@ -1109,6 +1128,20 @@ func buildKnowledgeBaseHitResp(ragKnowledgeHitResp *rag_service.RagKnowledgeHitR
 		SearchList: searchList,
 		UseGraph:   knowledgeHitData.UseGraph,
 	}
+}
+
+func buildRerankInfo(rerankInfo []*rag_service.RerankInfo) []*knowledgebase_service.RerankInfo {
+	rerankInfoList := make([]*knowledgebase_service.RerankInfo, 0)
+	if len(rerankInfo) > 0 {
+		for _, v := range rerankInfo {
+			rerankInfoList = append(rerankInfoList, &knowledgebase_service.RerankInfo{
+				FileUrl: v.FileUrl,
+				Score:   float32(v.Score),
+				Type:    v.Type,
+			})
+		}
+	}
+	return rerankInfoList
 }
 
 // buildRerankId 构造重排序模型id
@@ -1158,7 +1191,6 @@ func buildTermWeight(termWeight float32, termWeightEnable bool) float32 {
 	}
 	return 0.0
 }
-
 func buildKnowledgeMetaValueListResp(metaList []*model.KnowledgeDocMeta) *knowledgebase_service.KnowledgeMetaValueListResp {
 	retMap := make(map[string]*knowledgebase_service.KnowledgeMetaValues)
 	var retList []*knowledgebase_service.KnowledgeMetaValues

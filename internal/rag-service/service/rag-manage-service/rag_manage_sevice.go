@@ -1,14 +1,17 @@
 package rag_manage_service
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	sse_util "github.com/UnicomAI/wanwu/pkg/sse-util"
 
 	rag_service "github.com/UnicomAI/wanwu/api/proto/rag-service"
 	"github.com/UnicomAI/wanwu/internal/rag-service/client/model"
@@ -54,6 +57,8 @@ type RagChatParams struct {
 	MetaFilter           bool                  `json:"metadata_filtering"`            // 元数据过滤开关
 	MetaFilterConditions []*MetadataFilterItem `json:"metadata_filtering_conditions"` // 元数据过滤条件
 	UseGraph             bool                  `json:"use_graph"`                     // 是否启动知识图谱查询
+	EnableVision         bool                  `json:"enable_vision"`                 // 召回结果是否包含多模态
+	AttachmentList       []*AttachmentInfo     `json:"attachment_files"`              // 上传的文件
 }
 
 type MetadataFilterItem struct {
@@ -84,6 +89,11 @@ type HistoryItem struct {
 	NeedHistory bool   `json:"needHistory"`
 }
 
+type AttachmentInfo struct {
+	FileType string `json:"file_type"`
+	FileUrl  string `json:"file_url"`
+}
+
 type ModelConfig struct {
 	Temperature            float32 `json:"temperature"`
 	TemperatureEnable      bool    `json:"temperatureEnable"`
@@ -96,62 +106,41 @@ type ModelConfig struct {
 }
 
 func RagStreamChat(ctx context.Context, userId string, req *RagChatParams) (<-chan string, error) {
-	params, err := buildHttpParams(userId, req)
+	//1.执行http请求
+	sseResp, err := requestRagStreamChat(ctx, userId, req)
 	if err != nil {
-		log.Errorf("build http params fail", err.Error())
 		return nil, err
 	}
-	ret := make(chan string, 1024)
-	go func() {
-		// 确保通道最终被关闭
-		defer close(ret)
+	//2.读取结果
+	SSEReader := &sse_util.SSEReader[string]{
+		BusinessKey:    "rag_stream_chat",
+		StreamReceiver: sse_util.NewHttpStreamReceiver(sseResp),
+	}
+	return SSEReader.ReadStream(ctx)
+}
 
-		// 捕获 panic 并记录日志（不重新抛出，避免崩溃）
-		defer func() {
-			if r := recover(); r != nil {
-				log.Errorf("RagStreamChat panic: %v", r)
-			}
-		}()
-
-		//1.开启超时监控
-		if params.Timeout == 0 {
-			params.Timeout = time.Minute * 10
+// requestRagStreamChat 执行rag流式会话
+func requestRagStreamChat(ctx context.Context, userId string, req *RagChatParams) (*http.Response, error) {
+	params, err := buildHttpParams(userId, req)
+	if err != nil {
+		log.Errorf("build http params fail %s", err.Error())
+		return nil, err
+	}
+	sseResp, err := http_client.GetClient().PostJsonOriResp(ctx, params)
+	if err != nil {
+		log.Errorf("error: 调用下游服务异常: %v", err)
+		return nil, fmt.Errorf("error: 调用下游服务异常: %v", err)
+	}
+	if sseResp.StatusCode != http.StatusOK {
+		all, err := io.ReadAll(sseResp.Body)
+		var errResp = ""
+		if len(all) > 0 {
+			errResp = string(all)
 		}
-		ctx, cancel := context.WithTimeout(ctx, params.Timeout)
-		defer cancel()
-
-		resp, err := http_client.GetClient().PostJsonOriResp(ctx, params)
-		if err != nil {
-			errMsg := fmt.Sprintf("error: 调用下游服务异常: %v", err)
-			log.Errorf(errMsg)
-			ret <- errMsg
-			return
-		}
-		defer resp.Body.Close() // 确保响应体关闭
-
-		if resp.StatusCode != http.StatusOK {
-			errMsg := fmt.Sprintf("error: 调用下游服务异常: %s", resp.Status)
-			log.Errorf(errMsg)
-			ret <- errMsg
-			return
-		}
-		scan := bufio.NewScanner(resp.Body)
-
-		//设置初始缓冲区为 64KB，最大允许 10MB
-		buf := make([]byte, InitialBufferSize)
-		scan.Buffer(buf, MaxBufferCapacity)
-
-		for scan.Scan() {
-			ret <- scan.Text()
-		}
-		if err := scan.Err(); err != nil {
-			errMsg := fmt.Sprintf("error: 调用下游服务异常: %v", err)
-			log.Errorf(errMsg)
-			ret <- errMsg
-		}
-	}()
-
-	return ret, nil
+		log.Errorf("error: %s 调用下游服务异常: %v", errResp, err)
+		return nil, fmt.Errorf("error: 调用下游服务异常: %v", err)
+	}
+	return sseResp, nil
 }
 
 func buildHttpParams(userId string, req *RagChatParams) (*http_client.HttpRequestParams, error) {
@@ -171,7 +160,7 @@ func buildHttpParams(userId string, req *RagChatParams) (*http_client.HttpReques
 }
 
 // BuildChatConsultParams 构造rag 会话参数
-func BuildChatConsultParams(req *rag_service.ChatRagReq, rag *model.RagInfo, knowledgeIDToName map[string]string, knowledgeIds []string) (*RagChatParams, error) {
+func BuildChatConsultParams(req *rag_service.ChatRagReq, rag *model.RagInfo, knowledgeIDToName map[string]string, knowledgeIds []string, enableVision bool) (*RagChatParams, error) {
 	// 知识库参数
 	ragChatParams := &RagChatParams{}
 	knowledgeConfig := rag.KnowledgeBaseConfig
@@ -231,8 +220,27 @@ func BuildChatConsultParams(req *rag_service.ChatRagReq, rag *model.RagInfo, kno
 	ragChatParams.MetaFilterConditions = metaParams
 	ragChatParams.History = buildHistory(req.History)
 	ragChatParams.UseGraph = knowledgeConfig.UseGraph
+	ragChatParams.EnableVision = enableVision
+	ragChatParams.AttachmentList = buildAttachmentList(req.FileInfoList)
 	log.Infof("ragparams = %+v", http_client.Convert2LogString(ragChatParams))
 	return ragChatParams, nil
+}
+
+func buildAttachmentList(fileInfos []*rag_service.FileInfo) []*AttachmentInfo {
+	retList := make([]*AttachmentInfo, 0)
+	if len(fileInfos) > 0 {
+		for _, file := range fileInfos {
+			ext := filepath.Ext(file.FileUrl)
+			switch ext {
+			case ".png", ".jpg", ".jpeg":
+				retList = append(retList, &AttachmentInfo{
+					FileType: "image",
+					FileUrl:  file.FileUrl,
+				})
+			}
+		}
+	}
+	return retList
 }
 
 // 构建历史参数

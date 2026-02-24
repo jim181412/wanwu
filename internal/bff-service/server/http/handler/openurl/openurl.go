@@ -134,3 +134,26 @@ func AssistantUrlConversionStream(ctx *gin.Context) {
 		gin_util.Response(ctx, nil, err)
 	}
 }
+
+// AssistantUrlQuestionRecommend
+//
+//	@Tags			openurl
+//	@Summary		智能体推荐问题
+//	@Description	智能体推荐问题
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			X-Client-ID					header		string								true	"临时唯一标识"
+//	@Param			suffix						path		string								true	"Url后缀"
+//	@Param			data						body		request.UrlQuestionRecommendRequest	true	"智能体推荐问题参数"
+//	@Success		200							{object}	response.Response
+//	@Router			/agent/{suffix}/recommend 	[post]
+func AssistantUrlQuestionRecommend(ctx *gin.Context) {
+	var req request.UrlQuestionRecommendRequest
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	if err := service.AppUrlQuestionRecommend(ctx, req, ctx.GetHeader("X-Client-ID"), ctx.Param("suffix")); err != nil {
+		gin_util.Response(ctx, nil, err)
+	}
+}

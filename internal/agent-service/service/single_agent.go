@@ -3,20 +3,23 @@ package service
 import (
 	"context"
 	"encoding/json"
+
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
 	"github.com/UnicomAI/wanwu/internal/agent-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/agent-service/pkg/grpc-consumer/consumer/assistant"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-processor"
+	agent_message_processor "github.com/UnicomAI/wanwu/internal/agent-service/service/agent-message-processor"
 	agent_preprocessor "github.com/UnicomAI/wanwu/internal/agent-service/service/agent-preprocessor"
 	local_agent "github.com/UnicomAI/wanwu/internal/agent-service/service/local-agent"
-	"github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
+	service_model "github.com/UnicomAI/wanwu/internal/agent-service/service/service-model"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/gin-gonic/gin"
 )
 
 type SingleAgent struct {
+	ChatContext     *request.AgentChatContext
 	ChatModelAgent  *adk.ChatModelAgent
 	Req             *request.AgentChatParams
 	AgentPreprocess *agent_preprocessor.AgentPreprocess
@@ -49,7 +52,8 @@ func CreateSingleAgent(ctx *gin.Context, req *request.AgentChatParams) (*SingleA
 		log.Errorf("failed to build chat info: %v", err)
 		return nil, err
 	}
-	localAgentService := local_agent.CreateLocalAgentService(ctx, req, chatInfo)
+	chatContext := &request.AgentChatContext{}
+	localAgentService := local_agent.CreateLocalAgentService(ctx, req, chatInfo, chatContext)
 	//创建模型
 	chatModel, err := localAgentService.CreateChatModel(ctx, req, chatInfo)
 	if err != nil {
@@ -70,6 +74,7 @@ func CreateSingleAgent(ctx *gin.Context, req *request.AgentChatParams) (*SingleA
 			AgentChatInfo:     chatInfo,
 			GinContext:        ctx,
 		},
+		ChatContext: chatContext,
 	}, nil
 }
 
@@ -82,7 +87,7 @@ func (s *SingleAgent) Chat(ctx *gin.Context) error {
 	iter := runner.Query(ctx, s.Req.Input)
 
 	//2.处理结果
-	err := agent_message_processor.AgentMessage(ctx, iter, &request.AgentChatContext{AgentChatReq: s.Req})
+	err := agent_message_processor.AgentMessage(ctx, iter, &request.AgentChatContext{AgentChatReq: s.Req, KnowledgeHitData: s.ChatContext.KnowledgeHitData})
 	return err
 }
 
@@ -98,6 +103,22 @@ func (s *SingleAgent) Run(ctx context.Context, input *adk.AgentInput, options ..
 	//参数预处理
 	process := agent_preprocessor.AgentPreProcess(s.AgentPreprocess, input, s.Req)
 	return s.ChatModelAgent.Run(ctx, process, options...)
+}
+
+func (s *SingleAgent) Resume(ctx context.Context, info *adk.ResumeInfo, opts ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
+	return s.ChatModelAgent.Resume(ctx, info, opts...)
+}
+
+func (s *SingleAgent) OnSetSubAgents(ctx context.Context, subAgents []adk.Agent) error {
+	return s.ChatModelAgent.OnSetSubAgents(ctx, subAgents)
+}
+
+func (s *SingleAgent) OnSetAsSubAgent(ctx context.Context, parent adk.Agent) error {
+	return s.ChatModelAgent.OnSetAsSubAgent(ctx, parent)
+}
+
+func (s *SingleAgent) OnDisallowTransferToParent(ctx context.Context) error {
+	return s.ChatModelAgent.OnDisallowTransferToParent(ctx)
 }
 
 // buildAgentChatInfo 构建智能体信息
@@ -136,11 +157,16 @@ func createAgent(ctx *gin.Context, req *request.AgentChatParams, chatModel model
 	if err != nil {
 		return nil, err
 	}
+	var exit tool.BaseTool
+	if req.MultiAgent {
+		exit = &adk.ExitTool{}
+	}
 	return adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Model:       chatModel,
 		Name:        baseParams.Name,
 		Description: baseParams.Description,
 		Instruction: baseParams.Instruction,
 		ToolsConfig: toolsConfig,
+		Exit:        exit,
 	})
 }

@@ -132,12 +132,18 @@ func (s *Service) GetMCPByMCPIdList(ctx context.Context, req *mcp_service.GetMCP
 			if err != nil {
 				return nil, errStatus(errs.Code_MCPGetMCPServerListErr, err)
 			}
+			//todo 还可以优化成批量
+			sseUrl, sseExample, streamableUrl, streamableExample := getMCPServerExample(ctx, info.MCPServerID)
 			serverToolInfos = append(serverToolInfos, &mcp_service.MCPServerInfo{
-				McpServerId: info.MCPServerID,
-				Name:        info.Name,
-				Desc:        info.Description,
-				AvatarPath:  info.AvatarPath,
-				ToolNum:     toolNum,
+				McpServerId:       info.MCPServerID,
+				Name:              info.Name,
+				Desc:              info.Description,
+				AvatarPath:        info.AvatarPath,
+				ToolNum:           toolNum,
+				SseUrl:            sseUrl,
+				SseExample:        sseExample,
+				StreamableUrl:     streamableUrl,
+				StreamableExample: streamableExample,
 			})
 		}
 	}

@@ -1,33 +1,24 @@
-import traceback
-import requests
 import json
-import uuid
+import traceback
 import os
 import html2text
-import datetime
 import requests
 # import urllib3
+import logging
 
-from datetime import datetime, timedelta
-from logging_config import setup_logging
-logger_name='rag_model_parser_utils'
-app_name = os.getenv("LOG_FILE")
-logger = setup_logging(app_name,logger_name)
-logger.info(logger_name+'---------LOG_FILE：'+repr(app_name))
 from utils.constant import MODEL_PARSER_MAX_WORKERS
-from model_manager import get_model_configure, OcrModelConfig
+from model_manager.model_config import get_model_configure, OcrModelConfig
 
 hl2txt = html2text.HTML2Text()
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 # from PyPDF2 import PdfReader, PdfWriter
 import time
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from collections import defaultdict
 import fitz
 from pathlib import Path
+from utils import minio_utils
 
+logger = logging.getLogger(__name__)
 
 def get_page_data(page_num, add_file_path, ocr_model_id):
     """
@@ -89,13 +80,20 @@ def get_page_data(page_num, add_file_path, ocr_model_id):
         attempt = 0
         while attempt < max(len(rate_limit_backoff), other_error_max_retries) + 1:
             try:
+
                 r = requests.post(wanwu_ocr_url, files=files, headers=headers, data=data, timeout=60)
+                logger.info("====>wanwu_ocr_url=%s,data=%s" % (wanwu_ocr_url, json.dumps(data, ensure_ascii=False)))
                 ret_json = r.json()
                 # logger.info(f"model_parser_utils.get_page_data result: {ret_json}")
                 r.raise_for_status()  # 触发HTTP错误状态码的异常
                 if ret_json.get("code") == "200":
                     text = ret_json["content"]
                     # logger.info(f"get_paged_data page:%s, result:%s" % (page_num, text))
+                    version = ret_json["version"]
+                    if version != "private":
+                        image_url_prefix = ret_json["prefix_image_url"]
+                        text, replace_info = minio_utils.replace_minio_url(text, version, image_url_prefix)
+                        logger.info(f"get_page_data replace url info: {replace_info}")
                     return text, page_num
 
                 else:
