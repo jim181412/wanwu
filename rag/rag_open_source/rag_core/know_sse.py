@@ -398,7 +398,7 @@ async def search(request: Request):
             for rerank_i in item["rerank_info"]:
                 if rerank_i["type"] == "image":
                     file_url = rerank_i['file_url']
-                    if not file_url.startswith(f"http://{MINIO_ADDRESS}"):
+                    if not file_url.startswith(f"http://{MINIO_ADDRESS}") and REPLACE_MINIO_DOWNLOAD_URL in file_url:
                         suffix = file_url.replace(REPLACE_MINIO_DOWNLOAD_URL, "").lstrip("/")
                         file_url = f"http://{MINIO_ADDRESS}/{suffix}"
                     content_items.append({"type": "text", "text": f"\n此 {rerank_i['file_url']} 的图片是:"})
