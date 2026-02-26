@@ -224,7 +224,29 @@
           tokens
         </el-form-item>
         <el-form-item
-          v-if="provider.key !== ollama"
+          v-if="showAppAndAccessKey()"
+          label="APP Key"
+          prop="appKey"
+        >
+          <el-input
+            type="password"
+            v-model="createForm.appKey"
+            :placeholder="$t('common.hint.appKey')"
+          ></el-input>
+        </el-form-item>
+        <el-form-item
+          v-if="showAppAndAccessKey()"
+          label="Access Key"
+          prop="accessKey"
+        >
+          <el-input
+            type="password"
+            v-model="createForm.accessKey"
+            :placeholder="$t('common.hint.accessKey')"
+          ></el-input>
+        </el-form-item>
+        <el-form-item
+          v-if="provider.key !== ollama && !showAppAndAccessKey()"
           :label="$t('modelAccess.table.apiKey')"
           prop="apiKey"
         >
@@ -305,6 +327,7 @@ import {
   SUPPORT_FILE_TYPE_OBJ,
   IMAGE,
   VIDEO,
+  HUOSHAN,
 } from '../constants';
 import LinkIcon from '@/components/linkIcon.vue';
 
@@ -348,6 +371,8 @@ export default {
         displayName: '',
         endpointUrl: '',
         apiKey: '',
+        appKey: '',
+        accessKey: '',
         modelType: LLM,
         modelDesc: '',
         contextSize: 8000,
@@ -374,6 +399,20 @@ export default {
           },
           // { min: 2, max: 50, message: this.$t('common.hint.modelNameLimit'), trigger: 'blur'},
           // { pattern: /^(?!_)[a-zA-Z0-9-_.\u4e00-\u9fa5]+$/, message: this.$t('common.hint.modelName'), trigger: "blur"}
+        ],
+        appKey: [
+          {
+            required: true,
+            message: this.$t('common.input.placeholder'),
+            trigger: 'blur',
+          },
+        ],
+        accessKey: [
+          {
+            required: true,
+            message: this.$t('common.input.placeholder'),
+            trigger: 'blur',
+          },
         ],
         contextSize: [
           {
@@ -439,8 +478,8 @@ export default {
   watch: {
     'createForm.modelType': {
       handler() {
+        this.$refs.createForm.clearValidate();
         if (!this.isEdit) {
-          this.$refs.createForm.clearValidate('endpointUrl');
           this.setDefaultInferUrl();
         }
       },
@@ -461,6 +500,9 @@ export default {
       return [MULTIMODAL_RERANK, MULTIMODAL_EMBEDDING].includes(
         this.createForm.modelType,
       );
+    },
+    showAppAndAccessKey() {
+      return this.provider.key === HUOSHAN && this.createForm.modelType === ASR;
     },
     showVision() {
       return (
@@ -567,6 +609,8 @@ export default {
         if (valid) {
           const {
             apiKey,
+            appKey,
+            accessKey,
             endpointUrl,
             functionCalling,
             modelType,
@@ -590,12 +634,15 @@ export default {
               ...(this.showContextSize() && { contextSize }),
               ...(this.showMaxAudioLimit() && { maxAsrFileSize }),
               ...(this.showMaxPicLimit() && { maxImageSize }),
+              ...(this.showAppAndAccessKey() && { appKey, accessKey }),
               /*...(this.showMaxVideoLimit() && { maxVideoClipSize }),
               ...(this.isMultiModal() && { supportFileTypes, maxTextLength }),*/
             },
           };
           const deleteKeys = [
             'apiKey',
+            'appKey',
+            'accessKey',
             'endpointUrl',
             'functionCalling',
             'visionSupport',
