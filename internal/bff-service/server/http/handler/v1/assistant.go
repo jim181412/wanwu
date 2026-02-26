@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
+	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
 	"github.com/UnicomAI/wanwu/internal/bff-service/service"
 	"github.com/UnicomAI/wanwu/pkg/constant"
 	gin_util "github.com/UnicomAI/wanwu/pkg/gin-util"
@@ -500,7 +501,7 @@ func DraftAssistantConversationDetailList(ctx *gin.Context) {
 		AssistantId: req.AssistantId,
 	})
 	if err != nil {
-		gin_util.Response(ctx, nil, err)
+		gin_util.Response(ctx, response.PageResult{List: []response.ConversationDetailInfo{}}, nil)
 		return
 	}
 
