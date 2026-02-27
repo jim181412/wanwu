@@ -863,7 +863,7 @@ export default {
       '您导入的文件正在异步处理中，请耐心等待，您可以尝试，刷新列表获取导入结果。',
     editKnowledge: '编辑知识库',
     delKnowledgeTips:
-      '若此知识库已被智能体、文本问答或工作流使用，删除知识库将导致该功能不可用',
+      '若此知识库已被智能体、知识问答或工作流使用，删除知识库将导致该功能不可用',
     noStatus: '无状态信息',
     categoryNameRules: '命名只能包含小写英文、中文、数字、特殊符号-_',
     chunkTypeConfigTips:
@@ -1537,18 +1537,18 @@ export default {
     uploadImg: '请上传智能体图标',
   },
   ragDialog: {
-    createApp: '文本问答创建',
-    editApp: '文本问答编辑',
-    agentLogo: '文本问答图标',
+    createApp: '知识问答创建',
+    editApp: '知识问答编辑',
+    agentLogo: '知识问答图标',
     changeImg: '点击换图',
-    agentName: '文本问答名称',
-    agentDesc: '文本问答描述',
+    agentName: '知识问答名称',
+    agentDesc: '知识问答描述',
     nameplaceholder:
-      '输入文本问答名称 ，仅支持中文、英文、数字、下划线、中划线、英文（.）',
-    descplaceholder: '输入文本描述，将展示给文本问答用户 ',
-    pluginNameRules: ' 文本问答名称须在30字符以内',
-    nameRules: '请填写文本问答名称',
-    logoRules: '请上传文本问答图标',
+      '输入知识问答名称 ，仅支持中文、英文、数字、下划线、中划线、英文（.）',
+    descplaceholder: '输入文本描述，将展示给知识问答用户 ',
+    pluginNameRules: ' 知识问答名称须在30字符以内',
+    nameRules: '请填写知识问答名称',
+    logoRules: '请上传知识问答图标',
   },
   fileChunk: {
     fileClear: '文件清除成功',
