@@ -476,9 +476,10 @@ func assistantMCPConvert(ctx *gin.Context, assistantMCPInfos []*assistant_servic
 	// 提取MCP ID列表
 	var MCPCustomIds, MCPServerIds []string
 	for _, m := range assistantMCPInfos {
-		if m.McpType == constant.MCPTypeMCP {
+		switch m.McpType {
+		case constant.MCPTypeMCP:
 			MCPCustomIds = append(MCPCustomIds, m.McpId)
-		} else if m.McpType == constant.MCPTypeMCPServer {
+		case constant.MCPTypeMCPServer:
 			MCPServerIds = append(MCPServerIds, m.McpId)
 		}
 	}
@@ -783,6 +784,7 @@ func GetConversationDetailList(ctx *gin.Context, userId, orgId string, req reque
 			Prompt:              item.Prompt,
 			SysPrompt:           item.SysPrompt,
 			Response:            item.Response,
+			ResponseList:        buildResponseList(item.ConversationResponse),
 			QaType:              item.QaType,
 			CreatedBy:           item.CreatedBy,
 			CreatedAt:           item.CreatedAt,
@@ -806,6 +808,20 @@ func GetConversationDetailList(ctx *gin.Context, userId, orgId string, req reque
 	}
 
 	return response.PageResult{Total: resp.Total, List: convertedList, PageNo: req.PageNo, PageSize: req.PageSize}, nil
+}
+
+func buildResponseList(conversationResponse []*assistant_service.ConversationResponse) []*response.ConversationResponse {
+	if len(conversationResponse) == 0 {
+		return make([]*response.ConversationResponse, 0)
+	}
+	var retList []*response.ConversationResponse
+	for _, resp := range conversationResponse {
+		retList = append(retList, &response.ConversationResponse{
+			Response: resp.Response,
+			Order:    resp.Order,
+		})
+	}
+	return retList
 }
 
 func buildSearchList(searchListStr string) interface{} {
@@ -837,6 +853,7 @@ func buildSubConversationList(conversationList []*assistant_service.SubConversat
 			TimeCost:         conversation.TimeCost,
 			Status:           conversation.Status,
 			ConversationType: conversation.ConversationType,
+			Order:            conversation.Order,
 		})
 	}
 	return subConversationList

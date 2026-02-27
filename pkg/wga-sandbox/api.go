@@ -67,7 +67,7 @@ func Run(ctx context.Context, opts ...wga_sandbox_option.Option) (<-chan string,
 		defer util.PrintPanicStack()
 		defer close(outputCh)
 		if !opt.SkipCleanup {
-			defer manager.Cleanup(ctx, runID)
+			defer func() { manager.Cleanup(ctx, runID) }()
 		}
 
 		log.Infof("%s preparing...", logPrefix)
