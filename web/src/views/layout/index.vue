@@ -779,6 +779,7 @@ export default {
         overflow: auto;
         .page-container {
           height: 100%;
+          overflow-x: auto;
           .right-page-content {
             min-width: 1250px;
             min-height: calc(100% - 32px);

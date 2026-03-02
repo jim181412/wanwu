@@ -715,9 +715,15 @@ export default {
 }
 
 .editable--placeholder {
+  position: absolute;
   left: 0px !important;
   top: 0px !important;
   line-height: 22px;
+  max-width: calc(100% - 25px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .editable--close {
