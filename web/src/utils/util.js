@@ -527,3 +527,20 @@ export function Img2Md(htmlString, escapeHtml = true) {
 
   return result;
 }
+
+export function goBack(path = '') {
+  // 检查上一个页面是否来自同一个域名
+  const currentDomain = window.location.origin;
+  const referrer = document.referrer;
+
+  // 如果有可回退页面并且referrer来自同一域名，则可以返回
+  if (
+    window.history.length > 1 &&
+    referrer &&
+    referrer.startsWith(currentDomain)
+  ) {
+    router.back();
+  } else if (path) {
+    router.push({ path: path });
+  }
+}

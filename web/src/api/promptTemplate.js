@@ -1,6 +1,6 @@
 import service from '@/utils/request';
 import { USER_API } from '@/utils/requestConstants';
-//获取自定义propmpt详情
+//获取自定义prompt详情
 export const getPromptTemplateDetail = data => {
   return service({
     url: `${USER_API}/prompt/custom`,

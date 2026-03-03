@@ -138,6 +138,12 @@ const constantRoutes = [
         meta: { perm: [PERMS.PROMPT], routeType: PROMPT },
       },
       {
+        path: '/promptEvaluate',
+        name: 'promptEvaluate',
+        meta: { perm: [PERMS.PROMPT] },
+        component: resolve => require(['@/views/promptEvaluate'], resolve),
+      },
+      {
         path: '/mcpService',
         component: resolve => require(['@/views/tool'], resolve),
         meta: { perm: [PERMS.MCP_SERVICE], routeType: MCP },

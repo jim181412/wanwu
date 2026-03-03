@@ -232,20 +232,19 @@ export default {
           this.setStoreSessionStatus(-1); //关闭后改变状态
         },
         headers,
+        signal,
         ...rest
       } = options;
       this.ctrlAbort = new AbortController();
       return new fetchEventSource(this.origin + url, {
         method: 'POST',
-        headers: headers
-          ? headers
-          : {
-              'Content-Type': 'application/json',
-              Authorization: 'Bearer ' + this.token,
-              'x-user-id': this.userInfo.uid,
-              'x-org-id': this.userInfo.orgId,
-            },
-        signal: this.ctrlAbort.signal,
+        headers: headers || {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + this.token,
+          'x-user-id': this.userInfo.uid,
+          'x-org-id': this.userInfo.orgId,
+        },
+        signal: signal || this.ctrlAbort.signal,
         body: JSON.stringify(params),
         openWhenHidden: true,
         onopen: onopen,
@@ -912,6 +911,73 @@ export default {
           },
         },
       );
+    },
+    sendEventStreamIsolation(url, params, callbacks = {}) {
+      let fullContent = '';
+      let completeLock = true;
+      const { onProgress, onComplete } = callbacks;
+
+      const _print = new Print({});
+      const ctrlAbort = new AbortController();
+      this.fetchEventSource(`${USER_API}` + url, params, {
+        onopen: async response => {
+          if (response.status !== 200) {
+            const errorData = await response.json();
+            console.log('Network error', errorData);
+            this.$message.error(errorData.msg || i18n.t('sse.error'));
+            ctrlAbort.abort();
+            onComplete(fullContent);
+          }
+        },
+        onmessage: e => {
+          if (e && e.data) {
+            try {
+              const data = JSON.parse(e.data);
+              _print.print(
+                {
+                  response: data.response,
+                  finish: data.finish,
+                },
+                {},
+                worldObj => {
+                  fullContent += worldObj.world;
+                  onProgress(fullContent, worldObj);
+                  if (Boolean(worldObj.finish)) {
+                    onComplete(fullContent);
+                    completeLock = false;
+                  }
+                },
+              );
+            } catch (e) {
+              console.warn('message json parse fail: ', e);
+            }
+          }
+        },
+        onclose: () => {
+          console.log('===> eventSource onClose');
+          ctrlAbort.abort();
+          if (completeLock) onComplete(fullContent);
+        },
+        onerror: e => {
+          console.log(i18n.t('sse.connectError'));
+          if (e.readyState === EventSource.CLOSED) {
+            console.log('connection is closed');
+          } else {
+            console.warn('Error occured', e);
+          }
+          ctrlAbort.abort();
+          if (completeLock) onComplete(fullContent);
+        },
+        signal: ctrlAbort.signal,
+      });
+
+      setTimeout(() => {
+        if (!ctrlAbort.signal.aborted) {
+          ctrlAbort.abort();
+          this.$message.warning(i18n.t('sse.timeoutError'));
+          onComplete(fullContent);
+        }
+      }, 60000);
     },
     preStop() {
       //获取已经拿到的全部回答,一次性回显出来
