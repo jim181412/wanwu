@@ -636,7 +636,6 @@ export default {
     right: 0;
     bottom: 0;
     padding: 12px;
-    background-color: #fff;
     transition: all 0.4s;
     transform: translateY(100%);
     opacity: 0;
