@@ -101,26 +101,26 @@ func (c *client) view(ctx context.Context, sessionID string) (*viewResult, error
 	return &resp.Data, nil
 }
 
-func (c *client) wait(ctx context.Context, sessionID string, timeoutSeconds int) error {
-	var resp apiResponse[struct {
-		Status string `json:"status"`
-	}]
-	_, err := c.client.R().
-		SetContext(ctx).
-		SetBody(map[string]interface{}{
-			"id":      sessionID,
-			"seconds": timeoutSeconds,
-		}).
-		SetResult(&resp).
-		Post(c.endpoint + "/v1/shell/wait")
-	if err != nil {
-		return fmt.Errorf("wait request failed: %w", err)
-	}
-	if !resp.Success {
-		return fmt.Errorf("wait failed: %s", resp.Message)
-	}
-	return nil
-}
+// func (c *client) wait(ctx context.Context, sessionID string, timeoutSeconds int) error {
+// 	var resp apiResponse[struct {
+// 		Status string `json:"status"`
+// 	}]
+// 	_, err := c.client.R().
+// 		SetContext(ctx).
+// 		SetBody(map[string]interface{}{
+// 			"id":      sessionID,
+// 			"seconds": timeoutSeconds,
+// 		}).
+// 		SetResult(&resp).
+// 		Post(c.endpoint + "/v1/shell/wait")
+// 	if err != nil {
+// 		return fmt.Errorf("wait request failed: %w", err)
+// 	}
+// 	if !resp.Success {
+// 		return fmt.Errorf("wait failed: %s", resp.Message)
+// 	}
+// 	return nil
+// }
 
 func (c *client) upload(ctx context.Context, localPath, remotePath string) error {
 	file, err := os.Open(localPath)
@@ -253,48 +253,48 @@ func (c *client) downloadData(ctx context.Context, remotePath string) ([]byte, e
 	return resp.Body(), nil
 }
 
-func (c *client) writeFile(ctx context.Context, remotePath, content string) error {
-	var resp apiResponse[struct {
-		File         string `json:"file"`
-		BytesWritten int    `json:"bytes_written"`
-	}]
-	_, err := c.client.R().
-		SetContext(ctx).
-		SetBody(map[string]interface{}{
-			"file":    remotePath,
-			"content": content,
-		}).
-		SetResult(&resp).
-		Post(c.endpoint + "/v1/file/write")
-	if err != nil {
-		return fmt.Errorf("write file request failed: %w", err)
-	}
-	if !resp.Success {
-		return fmt.Errorf("write file failed: %s", resp.Message)
-	}
-	return nil
-}
+// func (c *client) writeFile(ctx context.Context, remotePath, content string) error {
+// 	var resp apiResponse[struct {
+// 		File         string `json:"file"`
+// 		BytesWritten int    `json:"bytes_written"`
+// 	}]
+// 	_, err := c.client.R().
+// 		SetContext(ctx).
+// 		SetBody(map[string]interface{}{
+// 			"file":    remotePath,
+// 			"content": content,
+// 		}).
+// 		SetResult(&resp).
+// 		Post(c.endpoint + "/v1/file/write")
+// 	if err != nil {
+// 		return fmt.Errorf("write file request failed: %w", err)
+// 	}
+// 	if !resp.Success {
+// 		return fmt.Errorf("write file failed: %s", resp.Message)
+// 	}
+// 	return nil
+// }
 
-func (c *client) readFile(ctx context.Context, remotePath string) (string, error) {
-	var resp apiResponse[struct {
-		Content string `json:"content"`
-		File    string `json:"file"`
-	}]
-	_, err := c.client.R().
-		SetContext(ctx).
-		SetBody(map[string]interface{}{
-			"file": remotePath,
-		}).
-		SetResult(&resp).
-		Post(c.endpoint + "/v1/file/read")
-	if err != nil {
-		return "", fmt.Errorf("read file request failed: %w", err)
-	}
-	if !resp.Success {
-		return "", fmt.Errorf("read file failed: %s", resp.Message)
-	}
-	return resp.Data.Content, nil
-}
+// func (c *client) readFile(ctx context.Context, remotePath string) (string, error) {
+// 	var resp apiResponse[struct {
+// 		Content string `json:"content"`
+// 		File    string `json:"file"`
+// 	}]
+// 	_, err := c.client.R().
+// 		SetContext(ctx).
+// 		SetBody(map[string]interface{}{
+// 			"file": remotePath,
+// 		}).
+// 		SetResult(&resp).
+// 		Post(c.endpoint + "/v1/file/read")
+// 	if err != nil {
+// 		return "", fmt.Errorf("read file request failed: %w", err)
+// 	}
+// 	if !resp.Success {
+// 		return "", fmt.Errorf("read file failed: %s", resp.Message)
+// 	}
+// 	return resp.Data.Content, nil
+// }
 
 func (c *client) delete(ctx context.Context, remotePath string) error {
 	_, err := c.exec(ctx, "rm -rf "+remotePath, "/")
