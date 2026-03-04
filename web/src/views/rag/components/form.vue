@@ -155,8 +155,9 @@
               </span>
             </p>
             <div class="rl">
-              <el-select
+              <modelSelect
                 v-model="editForm.modelParams"
+                :options="modelOptions"
                 :placeholder="
                   $t('knowledgeManage.create.modelSearchPlaceholder')
                 "
@@ -165,31 +166,7 @@
                 class="cover-input-icon model-select"
                 :loading="modelLoading"
                 filterable
-                value-key="modelId"
-              >
-                <el-option
-                  v-for="item in modelOptions"
-                  :key="item.modelId"
-                  :label="item.displayName"
-                  :value="item.modelId"
-                >
-                  <div class="model-option-content">
-                    <span class="model-name">{{ item.displayName }}</span>
-                    <div
-                      class="model-select-tags"
-                      v-if="item.tags && item.tags.length > 0"
-                    >
-                      <span
-                        v-for="(tag, tagIdx) in item.tags"
-                        :key="tagIdx"
-                        class="model-select-tag"
-                      >
-                        {{ tag.text }}
-                      </span>
-                    </div>
-                  </div>
-                </el-option>
-              </el-select>
+              />
             </div>
           </div>
         </div>
@@ -353,8 +330,10 @@ import {
 import CopyIcon from '@/components/copyIcon.vue';
 import { avatarSrc } from '@/utils/util';
 import visualSet from '@/views/agent/components/visualSet.vue';
+import modelSelect from '@/components/modelSelect.vue';
 export default {
   components: {
+    modelSelect,
     visualSet,
     CopyIcon,
     LinkIcon,
