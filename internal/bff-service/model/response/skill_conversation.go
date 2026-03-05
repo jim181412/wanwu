@@ -12,7 +12,7 @@ type SkillConversationItem struct {
 
 type SkillConversationDetailInfo struct {
 	ConversationDetailInfo
-	ResponseFiles []AssistantResponseFile `json:"responseFiles"`
+	ResponseFiles []*AssistantResponseFile `json:"responseFiles"`
 }
 
 type AssistantResponseFile struct {
@@ -27,19 +27,19 @@ type AssistantResponseFile struct {
 }
 
 type SkillConversationChatResp struct {
-	Code           int                    `json:"code"`
-	Message        string                 `json:"message"`
-	Response       string                 `json:"response"`
-	Order          int                    `json:"order"`
-	EventType      int                    `json:"eventType"`
-	EventData      interface{}            `json:"eventData"`
-	GenFileUrlList []interface{}          `json:"gen_file_url_list"`
-	History        []interface{}          `json:"history"`
-	Finish         int                    `json:"finish"`
-	Usage          SkillConversationUsage `json:"usage"`
-	SearchList     []interface{}          `json:"search_list"`
-	QaType         int                    `json:"qa_type"`
-	SkillSaveId    string                 `json:"skillSaveId"`
+	Code           int                      `json:"code"`
+	Message        string                   `json:"message"`
+	Response       string                   `json:"response"`
+	Order          int                      `json:"order"`
+	EventType      int                      `json:"eventType"`
+	EventData      interface{}              `json:"eventData"`
+	GenFileUrlList []interface{}            `json:"gen_file_url_list"`
+	History        []interface{}            `json:"history"`
+	Finish         int                      `json:"finish"`
+	Usage          SkillConversationUsage   `json:"usage"`
+	SearchList     []interface{}            `json:"search_list"`
+	QaType         int                      `json:"qa_type"`
+	ResponseFiles  []*AssistantResponseFile `json:"responseFiles"`
 }
 
 type SkillConversationUsage struct {

@@ -70,7 +70,7 @@ func extractSkillMarkdown(zipData []byte) (string, string, string, error) {
 }
 
 func CreateCustomSkill(ctx *gin.Context, userId, orgId string, req request.CreateCustomSkillReq) (*response.CustomSkillIDResp, error) {
-	var fileName string
+	var objectPath string
 	var markdownContent string
 	skillName := req.Name
 	skillDesc := req.Desc
@@ -97,12 +97,12 @@ func CreateCustomSkill(ctx *gin.Context, userId, orgId string, req request.Creat
 			skillDesc = desc
 		}
 
-		fileName, _, err = minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(data), customSkillFileType, 0, true)
+		fileName, _, err := minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(data), customSkillFileType, 0, true)
 		if err != nil {
 			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
 		}
 		// 构建完整的相对路径：file-upload/file-not-expire/xxx.zip
-		fileName = filepath.Join(minio.BucketFileUpload, minio.DirFileNotExpire, fileName)
+		objectPath = filepath.Join(minio.BucketFileUpload, minio.DirFileNotExpire, fileName)
 	}
 
 	createResp, err := mcp.CustomSkillCreate(ctx.Request.Context(), &mcp_service.CustomSkillCreateReq{
@@ -110,7 +110,7 @@ func CreateCustomSkill(ctx *gin.Context, userId, orgId string, req request.Creat
 		Avatar:     req.Avatar.Key,
 		Author:     req.Author,
 		Desc:       skillDesc,
-		ObjectPath: fileName,
+		ObjectPath: objectPath,
 		Markdown:   markdownContent,
 		SaveId:     req.SaveId,
 		SourceType: req.SourceType,
