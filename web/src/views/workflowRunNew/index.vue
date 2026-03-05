@@ -11,7 +11,7 @@ export default {
     return {
       workflowUrl:
         process.env.NODE_ENV === 'development'
-          ? `http://localhost:8081/workflow/run${query}`
+          ? `http://localhost:8282/workflow/run${query}`
           : window.location.origin + this.$basePath + `/workflow/run${query}`,
     };
   },
