@@ -323,13 +323,17 @@ export default {
 
         .name {
           flex: 1;
-          color: $color;
+          color: #333;
           font-size: 14px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           margin-right: 12px;
           cursor: pointer;
+
+          &:hover {
+            color: $color;
+          }
         }
 
         .bt {

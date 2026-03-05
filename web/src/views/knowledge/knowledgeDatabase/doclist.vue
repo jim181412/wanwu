@@ -3,7 +3,7 @@
     <div class="page-title">
       <i
         class="el-icon-arrow-left"
-        @click="goBack"
+        @click="goBack('/knowledge')"
         style="margin-right: 10px; font-size: 20px; cursor: pointer"
       ></i>
       {{ knowledgeName }}
@@ -460,6 +460,7 @@ import {
   exportDoc,
   docReImport,
 } from '@/api/knowledge';
+import { goBack } from '@/utils/util';
 import { mapGetters } from 'vuex';
 import {
   DROPDOWN_GROUPS,
@@ -791,9 +792,7 @@ export default {
         this.timer = null;
       }
     },
-    goBack() {
-      this.$router.push({ path: '/knowledge' });
-    },
+    goBack,
     reload() {
       this.getTableData(this.docQuery);
     },

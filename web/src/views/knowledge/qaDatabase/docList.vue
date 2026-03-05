@@ -3,7 +3,7 @@
     <div class="page-title">
       <i
         class="el-icon-arrow-left"
-        @click="goBack"
+        @click="goBack('/knowledge')"
         style="margin-right: 10px; font-size: 20px; cursor: pointer"
       ></i>
       {{ knowledgeName }}
@@ -389,6 +389,7 @@ import {
   QA_STATUS_PROCESSING,
 } from '@/views/knowledge/constants';
 import CopyIcon from '@/components/copyIcon.vue';
+import { goBack } from '@/utils/util';
 
 export default {
   components: {
@@ -670,9 +671,7 @@ export default {
         this.timer = null;
       }
     },
-    goBack() {
-      this.$router.push({ path: '/knowledge' });
-    },
+    goBack,
     reload() {
       this.getTableData(this.docQuery);
     },
