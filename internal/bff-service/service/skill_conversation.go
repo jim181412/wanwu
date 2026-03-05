@@ -9,11 +9,12 @@ import (
 	"time"
 
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
+	errs "github.com/UnicomAI/wanwu/api/proto/err-code"
 	mcp_service "github.com/UnicomAI/wanwu/api/proto/mcp-service"
 	model_service "github.com/UnicomAI/wanwu/api/proto/model-service"
-	"github.com/UnicomAI/wanwu/internal/bff-service/config"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
+	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/UnicomAI/wanwu/pkg/minio"
 	mp "github.com/UnicomAI/wanwu/pkg/model-provider"
@@ -21,47 +22,11 @@ import (
 	"github.com/UnicomAI/wanwu/pkg/util"
 	wga_sandbox_option "github.com/UnicomAI/wanwu/pkg/wga-sandbox/wga-sandbox-option"
 	"github.com/gin-gonic/gin"
-
-	errs "github.com/UnicomAI/wanwu/api/proto/err-code"
-	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 )
 
 const (
 	skillConversationESIndexName = "skill_creation_conversation_detail_*"
 )
-
-func GetAgentSkillList(ctx *gin.Context, name string) (*response.ListResult, error) {
-	var skillsTemplateList []*response.SkillDetail
-	for _, skillsCfg := range config.Cfg().AgentSkills {
-		if name != "" && !strings.Contains(skillsCfg.Name, name) {
-			continue
-		}
-		skillsTemplateList = append(skillsTemplateList, buildSkillTempDetail(*skillsCfg, false))
-	}
-	return &response.ListResult{
-		List:  skillsTemplateList,
-		Total: int64(len(skillsTemplateList)),
-	}, nil
-}
-
-func GetAgentSkillDetail(ctx *gin.Context, skillId string) (*response.SkillDetail, error) {
-	skillsCfg, exist := config.Cfg().AgentSkill(skillId)
-	if !exist {
-		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "bff_agent_skill_detail", "get skill detail empty")
-	}
-	return buildSkillTempDetail(skillsCfg, true), nil
-}
-
-func DownloadAgentSkill(ctx *gin.Context, skillId string) ([]byte, error) {
-	// 需要把SkConfigDir+templateId路径下的所有文件在内存打成一个压缩包
-	sf, exist := config.Cfg().AgentSkill(skillId)
-	if !exist {
-		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "bff_agent_skill_download", "get skill detail empty")
-	}
-	return sf.AgentSkillZipToBytes(skillId)
-}
-
-// --- Skill Conversation ---
 
 func CreateSkillConversation(ctx *gin.Context, userId, orgId string, req request.CreateSkillConversationReq) (*response.CreateSkillConversationResp, error) {
 	rpcResp, err := assistant.CreateSkillConversation(ctx.Request.Context(), &assistant_service.CreateSkillConversationReq{
@@ -82,9 +47,9 @@ func CreateSkillConversation(ctx *gin.Context, userId, orgId string, req request
 func DeleteSkillConversation(ctx *gin.Context, userId, orgId, conversationId string) error {
 	// 异步删除 ES 中的历史记录
 	go func() {
-		// 索引格式为 skill_creation_conversation_detail_*
+		defer util.PrintPanicStack()
 		_, _ = assistant.DeleteFromES(ctx.Request.Context(), &assistant_service.DeleteFromESReq{
-			IndexName: "skill_creation_conversation_detail_*",
+			IndexName: skillConversationESIndexName,
 			Conditions: map[string]string{
 				"conversationId": conversationId,
 			},
@@ -132,38 +97,17 @@ func GetSkillConversationList(ctx *gin.Context, userId, orgId string, req reques
 }
 
 func GetSkillConversationDetail(ctx *gin.Context, userId, orgId string, req request.GetSkillConversationDetailReq) (*response.ListResult, error) {
-	if req.ConversationId == "" {
-		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "bff_skill_conversation_detail", "conversationId is empty")
-	}
 
-	// 从 ES 中读取
-	searchResp, err := assistant.SearchFromES(ctx.Request.Context(), &assistant_service.SearchFromESReq{
-		IndexName: skillConversationESIndexName,
-		Conditions: map[string]string{
-			"conversationId": req.ConversationId,
-		},
-		PageNo:    1,
-		PageSize:  1000,
-		SortField: "createdAt",
-		SortOrder: "desc",
-	})
+	// 查询对话记录
+	detailList, err := getSkillConversationDetailListFromES(ctx, req.ConversationId)
 	if err != nil {
 		return nil, err
 	}
 
 	// 提取 SaveId
-	saveIds := make([]string, 0, len(searchResp.DocJsonList))
-
-	// 会话记录
-	respList := make([]*response.SkillConversationDetailInfo, 0, len(searchResp.DocJsonList))
-	for _, docJSON := range searchResp.DocJsonList {
-		var item response.SkillConversationDetailInfo
-		if err := json.Unmarshal([]byte(docJSON), &item); err != nil {
-			continue
-		}
-		respList = append(respList, &item)
-		// 提取 SaveId
-		for _, rf := range item.ResponseFiles {
+	saveIds := make([]string, 0, len(detailList))
+	for _, detail := range detailList {
+		for _, rf := range detail.ResponseFiles {
 			if skillSaveId, ok := rf.MetaData["skillSaveId"].(string); ok {
 				saveIds = append(saveIds, skillSaveId)
 			}
@@ -171,31 +115,31 @@ func GetSkillConversationDetail(ctx *gin.Context, userId, orgId string, req requ
 	}
 
 	// 是否已发送
-	mcpResp, err := mcp.CustomSkillGetBySaveIds(ctx.Request.Context(), &mcp_service.CustomSkillGetBySaveIdsReq{
-		SaveIds: saveIds,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// 有效的 saveIds 集合
-	validSaveIds := make(map[string]bool, len(mcpResp.SaveIds))
-	for _, sid := range mcpResp.SaveIds {
-		validSaveIds[sid] = true
-	}
-
-	// 标记是否已发送
-	for _, item := range respList {
-		for i := range item.ResponseFiles {
-			if skillSaveId, ok := item.ResponseFiles[i].MetaData["skillSaveId"].(string); ok {
-				item.ResponseFiles[i].MetaData["inResource"] = validSaveIds[skillSaveId]
+	if len(saveIds) > 0 {
+		mcpResp, err := mcp.CustomSkillGetBySaveIds(ctx.Request.Context(), &mcp_service.CustomSkillGetBySaveIdsReq{
+			SaveIds: saveIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// 有效的 saveIds 集合
+		validSaveIds := make(map[string]bool, len(mcpResp.SaveIds))
+		for _, saveId := range mcpResp.SaveIds {
+			validSaveIds[saveId] = true
+		}
+		// 标记是否已发送
+		for _, detail := range detailList {
+			for i := range detail.ResponseFiles {
+				if skillSaveId, ok := detail.ResponseFiles[i].MetaData["skillSaveId"].(string); ok {
+					detail.ResponseFiles[i].MetaData["inResource"] = validSaveIds[skillSaveId]
+				}
 			}
 		}
 	}
 
 	return &response.ListResult{
-		List:  respList,
-		Total: searchResp.Total,
+		List:  detailList,
+		Total: int64(len(detailList)),
 	}, nil
 }
 
@@ -210,44 +154,6 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	if err != nil {
 		return err
 	}
-
-	// 从 ES 中读取
-	indexName := "skill_creation_conversation_detail_*"
-	searchResp, err := assistant.SearchFromES(ctx.Request.Context(), &assistant_service.SearchFromESReq{
-		IndexName: indexName,
-		Conditions: map[string]string{
-			"conversationId": req.ConversationId,
-		},
-		PageNo:    1,
-		PageSize:  1000,
-		SortField: "createdAt",
-		SortOrder: "desc",
-	})
-	if err != nil {
-		return err
-	}
-
-	// 会话记录
-	messages := make([]wga_sandbox_option.Message, 0, len(searchResp.DocJsonList))
-	for _, docJSON := range searchResp.DocJsonList {
-		var item response.SkillConversationDetailInfo
-		if err := json.Unmarshal([]byte(docJSON), &item); err != nil {
-			continue
-		}
-		messages = append(messages, wga_sandbox_option.Message{
-			Role:    "user",
-			Content: item.Prompt,
-		}, wga_sandbox_option.Message{
-			Role:    "assistant",
-			Content: item.Response,
-		})
-
-	}
-
-	// 存储路径 /tmp/skills/<uuid>
-	outputDir := filepath.Join("/tmp/skills", util.GenUUID())
-
-	// 模型
 	modelConfig := wga_sandbox_option.ModelConfig{
 		Provider:     modelInfo.Provider,
 		ProviderName: modelInfo.Provider,
@@ -262,10 +168,30 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 		}
 	}
 
+	// 查询对话记录
+	detailList, err := getSkillConversationDetailListFromES(ctx, req.ConversationId)
+	if err != nil {
+		return err
+	}
+	messages := make([]wga_sandbox_option.Message, 0, len(detailList)*2)
+	for _, detail := range detailList {
+		messages = append(messages, wga_sandbox_option.Message{
+			Role:    "user",
+			Content: detail.Prompt,
+		}, wga_sandbox_option.Message{
+			Role:    "assistant",
+			Content: detail.Response,
+		})
+
+	}
+
+	// 存储路径 /tmp/skills/<uuid>
+	outputDir := filepath.Join("/tmp/skills", util.GenUUID())
+
 	// 流式问答
 	streamCh, err := RunSkillCreator(ctx, modelConfig, "", outputDir, req.Query, messages)
 	if err != nil {
-		return err
+		return grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
 	}
 
 	// 处理流式问答
@@ -275,13 +201,77 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	return nil
 }
 
+func SkillConversationSave(ctx *gin.Context, userId, orgId string, req request.SkillConversationSaveReq) (*response.CustomSkillIDResp, error) {
+
+	// 查询对话记录
+	detailList, err := getSkillConversationDetailListFromES(ctx, req.ConversationId)
+	if err != nil {
+		return nil, err
+	}
+	// 查找zipUrl
+	var zipUrl string
+	for _, detail := range detailList {
+		for _, rf := range detail.ResponseFiles {
+			if skillSaveId, ok := rf.MetaData["skillSaveId"].(string); ok && skillSaveId == req.SkillSaveId {
+				zipUrl = rf.FileUrl
+				break
+			}
+		}
+		if zipUrl != "" {
+			break
+		}
+	}
+
+	if zipUrl == "" {
+		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "skillSaveId not found in conversation files")
+	}
+
+	// 保存至资源库自定义Skills
+	return CreateCustomSkill(ctx, userId, orgId, request.CreateCustomSkillReq{
+		Author:     "wanwu",
+		ZipUrl:     zipUrl,
+		SaveId:     req.SkillSaveId,
+		SourceType: "skill_conversation",
+	})
+}
+
+// --- internal ---
+
+func getSkillConversationDetailListFromES(ctx *gin.Context, conversationId string) ([]*response.SkillConversationDetailInfo, error) {
+	searchResp, err := assistant.SearchFromES(ctx.Request.Context(), &assistant_service.SearchFromESReq{
+		IndexName: skillConversationESIndexName,
+		Conditions: map[string]string{
+			"conversationId": conversationId,
+		},
+		PageNo:    1,
+		PageSize:  1000,
+		SortField: "createdAt",
+		SortOrder: "desc",
+	})
+	if err != nil {
+		return nil, err
+	}
+	respList := make([]*response.SkillConversationDetailInfo, 0, len(searchResp.DocJsonList))
+	for _, docJSON := range searchResp.DocJsonList {
+		var item response.SkillConversationDetailInfo
+		if err := json.Unmarshal([]byte(docJSON), &item); err != nil {
+			log.Errorf("[Skill] conversation %v parse ES doc json err: %v", conversationId, err)
+			continue
+		}
+		respList = append(respList, &item)
+	}
+	return respList, nil
+}
+
 func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req request.SkillConversationChatReq, outputDir string, responseStr *string) func(sse_util.SSEWriterClient[string], interface{}) error {
 	return func(c sse_util.SSEWriterClient[string], params interface{}) error {
 
 		mesageId := util.GenUUID()
-		lastSSE := response.SkillConversationChatResp{
-			Message: "success",
-			Finish:  1,
+		lastSSE := response.SkillConversationSSEData{
+			ConversationSSEData: response.ConversationSSEData{
+				Message: "success",
+				Finish:  1,
+			},
 		}
 
 		defer func() {
@@ -342,7 +332,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 			},
 		})
 		// 删除临时文件
-		if err := util.DeleteDirFile(outputDir); err != nil {
+		if err := util.DeleteDir(outputDir); err != nil {
 			return err
 		}
 		return nil
@@ -352,7 +342,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 func buildSkillChatRespLineProcessor(responeStr *string) func(sse_util.SSEWriterClient[string], string, interface{}) (string, bool, error) {
 	return func(c sse_util.SSEWriterClient[string], lineText string, params interface{}) (string, bool, error) {
 
-		// 累计流式输出
+		// 累计流式输出文本
 		*responeStr += lineText
 
 		if strings.HasPrefix(lineText, "error:") {
@@ -362,81 +352,12 @@ func buildSkillChatRespLineProcessor(responeStr *string) func(sse_util.SSEWriter
 		if strings.HasPrefix(lineText, "data:") {
 			return lineText + "\n\n", false, nil
 		}
-		resp := response.SkillConversationChatResp{
-			Response: lineText,
+		resp := response.SkillConversationSSEData{
+			ConversationSSEData: response.ConversationSSEData{
+				Response: lineText,
+			},
 		}
 		marshal, _ := json.Marshal(resp)
 		return "data: " + string(marshal) + "\n\n", false, nil
 	}
-}
-
-func SkillConversationSave(ctx *gin.Context, userId, orgId string, req request.SkillConversationSaveReq) (*response.CustomSkillIDResp, error) {
-
-	// 从 ES 中读取
-	searchResp, err := assistant.SearchFromES(ctx.Request.Context(), &assistant_service.SearchFromESReq{
-		IndexName: skillConversationESIndexName,
-		Conditions: map[string]string{
-			"conversationId": req.ConversationId,
-		},
-		PageNo:    1,
-		PageSize:  1000,
-		SortField: "createdAt",
-		SortOrder: "desc",
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var zipUrl string
-	for _, docJSON := range searchResp.DocJsonList {
-		var item response.SkillConversationDetailInfo
-		if err := json.Unmarshal([]byte(docJSON), &item); err != nil {
-			continue
-		}
-		// 提取 SaveId
-		for _, rf := range item.ResponseFiles {
-			if skillSaveId, ok := rf.MetaData["skillSaveId"].(string); ok && skillSaveId == req.SkillSaveId {
-				zipUrl = rf.FileUrl
-				break
-			}
-		}
-		if zipUrl != "" {
-			break
-		}
-	}
-
-	if zipUrl == "" {
-		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "skillSaveId not found in conversation files")
-	}
-
-	skillId, err := CreateCustomSkill(ctx, userId, orgId, request.CreateCustomSkillReq{
-		Author:     "wanwu",
-		ZipUrl:     zipUrl,
-		SaveId:     req.SkillSaveId,
-		SourceType: "skill_conversation",
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return skillId, nil
-}
-
-// --- internal ---
-func buildSkillTempDetail(skillsCfg config.SkillsConfig, needMd bool) *response.SkillDetail {
-	iconUrl := config.Cfg().DefaultIcon.SkillIcon
-	if skillsCfg.Avatar != "" {
-		iconUrl = skillsCfg.Avatar
-	}
-	ret := &response.SkillDetail{
-		SkillId: skillsCfg.SkillId,
-		Author:  skillsCfg.Author,
-		Avatar:  request.Avatar{Path: iconUrl},
-		Name:    skillsCfg.Name,
-		Desc:    skillsCfg.Desc,
-	}
-	if needMd {
-		ret.SkillMarkdown = string(skillsCfg.SkillMarkdown)
-	}
-	return ret
 }

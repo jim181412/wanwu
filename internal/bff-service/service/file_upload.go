@@ -202,7 +202,7 @@ func clearChunkDir(chunkName string) error {
 		return fmt.Errorf("check dir (%v) err: %v", dir, err)
 	}
 	if exist {
-		err = util.DeleteDirFile(dir)
+		err = util.DeleteDir(dir)
 		if err != nil {
 			return fmt.Errorf("delete dir (%v) err: %v", dir, err)
 		}
@@ -233,7 +233,7 @@ func clearChunkFile(fileName string, sequence int, chunkName string) error {
 			return fmt.Errorf("read dir (%v) err: %v", dirPath, err)
 		}
 		if len(dir) == 0 {
-			err = util.DeleteDirFile(dirPath)
+			err = util.DeleteDir(dirPath)
 			if err != nil {
 				return fmt.Errorf("delete dir (%v) err: %v", dirPath, err)
 			}

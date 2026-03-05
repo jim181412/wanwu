@@ -151,7 +151,7 @@ func MergeFile(filePathList []string, mergeFilePath string) (*FileMergeResult, e
 	}, nil
 }
 
-func DeleteDirFile(fileDir string) error {
+func DeleteDir(fileDir string) error {
 	err := os.RemoveAll(fileDir)
 	if err != nil {
 		return fmt.Errorf("delete dir (%v) err: %v", fileDir, err)

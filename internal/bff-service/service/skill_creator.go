@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// inputdir需要，threadID, runID不需要
 func RunSkillCreator(ctx *gin.Context, modelConfig wga_sandbox_option.ModelConfig, inputDir, outputDir, currentTask string, messages []wga_sandbox_option.Message) (<-chan string, error) {
 	skillCreatorCfg := config.Cfg().SkillCreator
 
@@ -37,11 +36,11 @@ func buildSkillCreatorOptions(modelConfig wga_sandbox_option.ModelConfig, inputD
 		wga_sandbox_option.WithInputDir(inputDir),
 		wga_sandbox_option.WithOutputDir(outputDir),
 		wga_sandbox_option.WithCurrentTask(currentTask),
-		wga_sandbox_option.WithEnableThinking(skillCreatorCfg.Agent.EnableThinking),
+		wga_sandbox_option.WithEnableThinking(skillCreatorCfg.EnableThinking),
 	}
 
-	if skillCreatorCfg.Agent.Instruction != "" {
-		opts = append(opts, wga_sandbox_option.WithInstruction(skillCreatorCfg.Agent.Instruction))
+	if skillCreatorCfg.Instruction != "" {
+		opts = append(opts, wga_sandbox_option.WithInstruction(skillCreatorCfg.Instruction))
 	}
 
 	sandboxCfg := config.Cfg().WgaSandbox.Sandbox
@@ -93,19 +92,18 @@ func filterOpencodeEvents(jsonCh <-chan string) <-chan string {
 				if err != nil || opencodeTextPart.Text == "" {
 					continue
 				}
-				msg := fmt.Sprintf(`{"response": "%s"}`, opencodeTextPart.Text)
-				resultCh <- msg
+				resultCh <- opencodeTextPart.Text
 			case wga_sandbox.OpencodeEventTypeToolUse:
 				toolPart, err := wga_sandbox.ParseOpencodeToolPart(event.Part)
 				if err != nil {
 					continue
 				}
-				resultCh <- fmt.Sprintf(`{"response": "工具名称: %s"}`, toolPart.Tool)
-				resultCh <- fmt.Sprintf(`{"response": "<tool>\n\n%s工具参数：\n%s\n%s\n\n\\"}`, "```", toolPart.State.Input, "```")
+				resultCh <- fmt.Sprintf("工具名称: %s", toolPart.Tool)
+				resultCh <- fmt.Sprintf("<tool>\n\n%s工具参数: \n%s\n%s\n\n\\", "```", toolPart.State.Input, "```")
 				if toolPart.State.Output != "" {
-					resultCh <- fmt.Sprintf(`{"response": "%s%s 调用结果：\n %s %s"}`, "```", toolPart.Tool, toolPart.State.Output, "```")
+					resultCh <- fmt.Sprintf("%s%s 调用结果：\n %s %s", "```", toolPart.Tool, toolPart.State.Output, "```")
 				}
-				resultCh <- `{"response": "</tool>"}`
+				resultCh <- "</tool>"
 			}
 		}
 	}()
