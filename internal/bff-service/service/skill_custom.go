@@ -97,7 +97,7 @@ func CreateCustomSkill(ctx *gin.Context, userId, orgId string, req request.Creat
 			skillDesc = desc
 		}
 
-		fileName, _, err := minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(data), customSkillFileType, 0, true)
+		fileName, _, err := minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(data), customSkillFileType, -1, true)
 		if err != nil {
 			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
 		}

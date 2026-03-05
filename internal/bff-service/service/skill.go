@@ -245,8 +245,7 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	}
 
 	// 存储路径 /tmp/skills/<uuid>
-	fileName := util.GenUUID()
-	outputDir := fmt.Sprintf("/tmp/skills/%v", fileName)
+	outputDir := filepath.Join("/tmp/skills", util.GenUUID())
 
 	// 模型
 	modelConfig := wga_sandbox_option.ModelConfig{
@@ -312,7 +311,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 		}()
 
 		// 压缩文件夹
-		zipBytes, err := util.ZipDir(outputDir)
+		zipBytes, err := util.ZipDir(outputDir + "/.")
 		if err != nil {
 			return err
 		}
@@ -322,7 +321,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 			return err
 		}
 		// 上传到 minio
-		fileName, _, err := minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(zipBytes), ".zip", 0, false)
+		fileName, _, err := minio.UploadFileCommon(ctx.Request.Context(), bytes.NewReader(zipBytes), ".zip", -1, false)
 		if err != nil {
 			return err
 		}
@@ -398,8 +397,16 @@ func SkillConversationSave(ctx *gin.Context, userId, orgId string, req request.S
 		for _, rf := range item.ResponseFiles {
 			if skillSaveId, ok := rf.MetaData["skillSaveId"].(string); ok && skillSaveId == req.SkillSaveId {
 				zipUrl = rf.FileUrl
+				break
 			}
 		}
+		if zipUrl != "" {
+			break
+		}
+	}
+
+	if zipUrl == "" {
+		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, "skillSaveId not found in conversation files")
 	}
 
 	skillId, err := CreateCustomSkill(ctx, userId, orgId, request.CreateCustomSkillReq{

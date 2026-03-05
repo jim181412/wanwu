@@ -34,8 +34,8 @@ func buildSkillCreatorOptions(modelConfig wga_sandbox_option.ModelConfig, inputD
 
 	opts := []wga_sandbox_option.Option{
 		wga_sandbox_option.WithModelConfig(modelConfig),
-		wga_sandbox_option.WithOutputDir(outputDir),
 		wga_sandbox_option.WithInputDir(inputDir),
+		wga_sandbox_option.WithOutputDir(outputDir),
 		wga_sandbox_option.WithCurrentTask(currentTask),
 		wga_sandbox_option.WithEnableThinking(skillCreatorCfg.Agent.EnableThinking),
 	}
