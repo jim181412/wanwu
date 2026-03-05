@@ -12,14 +12,14 @@ import (
 )
 
 // inputdir需要，threadID, runID不需要
-func RunSkillCreator(ctx *gin.Context, modelConfig wga_sandbox_option.ModelConfig, inputDir, outputDir string, messages []wga_sandbox_option.Message) (<-chan string, error) {
+func RunSkillCreator(ctx *gin.Context, modelConfig wga_sandbox_option.ModelConfig, inputDir, outputDir, currentTask string, messages []wga_sandbox_option.Message) (<-chan string, error) {
 	skillCreatorCfg := config.Cfg().SkillCreator
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("create output directory failed: %w", err)
 	}
 
-	opts := buildSkillCreatorOptions(modelConfig, inputDir, outputDir, messages, skillCreatorCfg)
+	opts := buildSkillCreatorOptions(modelConfig, inputDir, outputDir, currentTask, messages, skillCreatorCfg)
 
 	_, jsonCh, err := wga_sandbox.Run(ctx, opts...)
 	if err != nil {
@@ -30,14 +30,14 @@ func RunSkillCreator(ctx *gin.Context, modelConfig wga_sandbox_option.ModelConfi
 	return filteredCh, nil
 }
 
-func buildSkillCreatorOptions(modelConfig wga_sandbox_option.ModelConfig, inputDir, outputDir string, messages []wga_sandbox_option.Message, skillCreatorCfg config.SkillCreatorConfig) []wga_sandbox_option.Option {
+func buildSkillCreatorOptions(modelConfig wga_sandbox_option.ModelConfig, inputDir, outputDir, currentTask string, messages []wga_sandbox_option.Message, skillCreatorCfg config.SkillCreatorConfig) []wga_sandbox_option.Option {
 
 	opts := []wga_sandbox_option.Option{
 		wga_sandbox_option.WithModelConfig(modelConfig),
-		wga_sandbox_option.WithSkipCleanup(false),
 		wga_sandbox_option.WithOutputDir(outputDir),
-		wga_sandbox_option.WithEnableThinking(skillCreatorCfg.Agent.EnableThinking),
 		wga_sandbox_option.WithInputDir(inputDir),
+		wga_sandbox_option.WithCurrentTask(currentTask),
+		wga_sandbox_option.WithEnableThinking(skillCreatorCfg.Agent.EnableThinking),
 	}
 
 	if skillCreatorCfg.Agent.Instruction != "" {

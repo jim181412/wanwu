@@ -264,7 +264,7 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	}
 
 	// 流式问答
-	streamCh, err := RunSkillCreator(ctx, modelConfig, "", outputDir, messages)
+	streamCh, err := RunSkillCreator(ctx, modelConfig, "", outputDir, req.Query, messages)
 	if err != nil {
 		return err
 	}
