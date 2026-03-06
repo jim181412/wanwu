@@ -450,6 +450,15 @@
               </template>
             </div>
           </div>
+          <!-- 主体内容后的slot -->
+          <div class="answer-operation">
+            <slot
+              name="afterContent"
+              :skillsList="n.responseFiles"
+              :item="n"
+              :index="i"
+            />
+          </div>
           <!--loading-->
           <div
             v-if="

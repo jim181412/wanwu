@@ -10,6 +10,7 @@
     :loading="loading"
     :filterable="filterable"
     :clearable="clearable"
+    :popper-class="popperClass"
   >
     <el-option
       v-for="item in options"
@@ -73,6 +74,10 @@ export default {
     clearable: {
       type: Boolean,
       default: false,
+    },
+    popperClass: {
+      type: String,
+      default: '',
     },
     warning: {
       type: Boolean,

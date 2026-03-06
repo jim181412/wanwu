@@ -666,6 +666,20 @@ export default {
     select: '选这个',
     promptCompareLimit: '最多可添加4个提示词',
     comparePrompt: '对比提示词',
+    skills: {
+      app: {
+        builtIn: '内置',
+        custom: '自定义',
+        addText: '创建自定义Skills',
+        moreText: '点击发现更多Skills',
+      },
+      createSlogan: '一句话创建Skills',
+      createPlaceholder: '选择一款模型，告诉我想要生成什么Skill吧',
+      sendCustom: '发送到资源库',
+      noModelIdTips: '请选择一个模型',
+      deleteHint:
+        '删除后，历史引用了本skills的智能体将自动取消引用，且此操作不可撤回,确定要删除吗？',
+    },
   },
 
   // 工作流/对话流

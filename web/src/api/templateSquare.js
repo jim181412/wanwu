@@ -120,3 +120,80 @@ export const downloadSkill = params => {
     responseType: 'blob',
   });
 };
+
+// 获取自定义skills列表
+export const getCustomSkillList = data => {
+  return request({
+    url: `${USER_API}/agent/skill/custom/list`,
+    method: 'get',
+    params: data,
+  });
+};
+
+// 删除自定义skills
+export const deleteCustomSkill = data => {
+  return request({
+    url: `${USER_API}/agent/skill/custom`,
+    method: 'delete',
+    data,
+  });
+};
+
+// 查询自定义skills详情
+export const getCustomSkillInfo = data => {
+  return request({
+    url: `${USER_API}/agent/skill/custom/detail`,
+    method: 'get',
+    params: data,
+  });
+};
+
+// 创建自定义skills会话
+export const createCustomSkillConversation = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation`,
+    method: 'post',
+    data,
+  });
+};
+
+// 删除自定义skill会话
+export const delCustomSkillConversation = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation`,
+    method: 'delete',
+    data,
+  });
+};
+
+// 查询自定义skill会话列表
+export const getCustomSkillConversationList = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation/list`,
+    method: 'get',
+    params: data,
+  });
+};
+
+// 查询自定义skill会话详情
+export const getCustomSkillConversationDetail = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation/detail`,
+    method: 'get',
+    params: data,
+  });
+};
+
+// 自定义skill会话sse
+export const getCustomSkillSSeUrl = () => {
+  return `${USER_API}/agent/skill/conversation/chat`;
+};
+
+// 发送自定义skill到资源库
+export const sendCustomSkillToResource = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation/save`,
+    method: 'post',
+    data,
+  });
+};
