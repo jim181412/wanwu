@@ -7,6 +7,7 @@
         <div v-show="echo" class="session rl echo">
           <streamGreetingField
             :editForm="editForm"
+            sessionItemWidth="100%"
             @setProloguePrompt="setProloguePrompt"
           />
         </div>

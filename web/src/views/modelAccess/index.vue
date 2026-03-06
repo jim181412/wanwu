@@ -1,10 +1,25 @@
 <template>
   <div class="page-wrapper modelAccess">
-    <div class="table-wrap list-common wrap-fullheight">
+    <div
+      class="table-wrap list-common wrap-fullheight"
+      style="padding-top: 20px"
+    >
       <!--<div class="page-title">
         <img class="page-title-img" src="@/assets/imgs/model.svg" alt="" />
         <span class="page-title-name">{{ $t('modelAccess.title') }}</span>
       </div>-->
+      <div class="tabs" style="margin: 0 20px">
+        <div
+          v-for="item in isSystem
+            ? tabList.filter(({ type }) => !type)
+            : tabList"
+          :key="item.type"
+          :class="['tab', { active: type === item.type }]"
+          @click="tabClick(item.type)"
+        >
+          {{ item.name }}
+        </div>
+      </div>
       <div class="table-box">
         <div class="table-form">
           <el-select
@@ -36,6 +51,22 @@
               :label="item.name"
               :value="item.key"
             />
+          </el-select>
+
+          <el-select
+            v-model="params.scopeType"
+            :placeholder="$t('modelAccess.table.scopeType')"
+            class="modelAccess-select no-border-select"
+            style="margin-left: 15px"
+            clearable
+            @change="searchData()"
+          >
+            <el-option
+              v-for="item in getScopeTypeList(isSystem)"
+              :key="item.key"
+              :label="item.name"
+              :value="item.key"
+            ></el-option>
           </el-select>
           <div
             style="
@@ -171,7 +202,10 @@
                     <i class="el-icon-more more"></i>
                   </span>
                   <el-dropdown-menu slot="dropdown">
-                    <el-dropdown-item :command="{ type: 'edit', item }">
+                    <el-dropdown-item
+                      v-if="item.allowEdit"
+                      :command="{ type: 'edit', item }"
+                    >
                       <i class="el-icon-edit-outline card-opera-icon"></i>
                       {{ $t('common.button.edit') }}
                     </el-dropdown-item>
@@ -254,13 +288,17 @@ import {
 import CreateDialog from './components/createDialog.vue';
 import CreateSelectDialog from './components/createSelectDialog.vue';
 import {
+  LLM,
   MODEL_TYPE_OBJ,
   PROVIDER_OBJ,
   PROVIDER_TYPE,
   MODEL_TYPE,
+  SCOPE_TYPE_LIST,
+  ORG,
+  TAB_LIST,
+  SCOPE_TYPE_OBJ,
 } from './constants';
 import { avatarSrc } from '@/utils/util';
-import { LLM } from '@/views/modelAccess/constants';
 
 export default {
   components: { Pagination, CreateSelectDialog, CreateDialog },
@@ -268,6 +306,7 @@ export default {
     return {
       LLM,
       listApi: fetchModelList,
+      isSystem: this.$store.state.user.permission.isSystem || false,
       providerList: PROVIDER_TYPE,
       modelTypeList: MODEL_TYPE,
       basePath: this.$basePath,
@@ -278,6 +317,7 @@ export default {
         provider: '',
         modelType: '',
         displayName: '',
+        scopeType: '',
       },
       loading: false,
       modelSelection: [],
@@ -287,7 +327,11 @@ export default {
         { color: '#E87B00', backgroundColor: '#FFF3E5' },
         { color: '#0DA5A5', backgroundColor: '#E7F7F7' },
         { color: '#6349E8', backgroundColor: '#F1EDFF' },
+        { color: '#67C23A', backgroundColor: '#F0F9EB' },
+        { color: '#E6A23C', backgroundColor: '#FDF6EC' },
       ],
+      type: '',
+      tabList: TAB_LIST,
     };
   },
   computed: {
@@ -297,26 +341,44 @@ export default {
       };
     },
   },
+  created() {
+    this.type = this.$route.query.type || '';
+  },
   mounted() {
     this.getTableData();
   },
   methods: {
     avatarSrc,
+    getScopeTypeList() {
+      // 系统管理员非组织筛选，普通用户全部-都可以筛选，公有模型非个人筛选，我的模型非全局筛选
+      return this.isSystem
+        ? SCOPE_TYPE_LIST.filter(item => item.key !== ORG)
+        : SCOPE_TYPE_OBJ[this.type] || SCOPE_TYPE_LIST;
+    },
+    tabClick(type) {
+      this.type = type;
+      this.clearParams();
+      this.getTableData();
+    },
     async getTableData(params) {
       this.loading = true;
       try {
-        const res = await fetchModelList({ ...params });
+        const res = await fetchModelList({ filterScope: this.type, ...params });
         const tableData = res.data ? res.data.list || [] : [];
         this.tableData = [...tableData];
       } finally {
         this.loading = false;
       }
     },
+    clearParams() {
+      for (let key in this.params) {
+        this.params[key] = '';
+      }
+    },
     searchData(isCreate) {
       if (isCreate) {
-        this.params.provider = '';
-        this.params.modelType = '';
-        this.params.displayName = '';
+        this.clearParams();
+        this.type = '';
       }
       this.getTableData({ ...this.params });
     },
@@ -431,6 +493,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import '@/style/tabs.scss';
 .routerview-container {
   top: 0;
 }
@@ -573,7 +636,6 @@ export default {
     right: 0;
     bottom: 0;
     padding: 12px;
-    background-color: #fff;
     transition: all 0.4s;
     transform: translateY(100%);
     opacity: 0;

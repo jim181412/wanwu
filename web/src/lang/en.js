@@ -511,6 +511,9 @@ export default {
     support: '支持',
     noSupport: '不支持',
     noInferUrl: '暂无统一示例',
+    all: '全部',
+    public: '公有模型',
+    private: '我的模型',
     type: {
       yuanjing: '联通元景',
       qwen: '通义千问',
@@ -521,6 +524,11 @@ export default {
       asr: '语音识别模型',
     },
     table: {
+      scopeType: '公开范围',
+      all: '全局可见',
+      private: '仅自己可见',
+      org: '组织内可见',
+      model: '模型ID',
       modelName: '模型名称',
       modelDisplayName: '模型显示名称',
       modelDesc: '模型描述',
@@ -658,6 +666,20 @@ export default {
     select: '选这个',
     promptCompareLimit: '最多可添加4个提示词',
     comparePrompt: '对比提示词',
+    skills: {
+      app: {
+        builtIn: '内置',
+        custom: '自定义',
+        addText: '创建自定义Skills',
+        moreText: '点击发现更多Skills',
+      },
+      createSlogan: '一句话创建Skills',
+      createPlaceholder: '选择一款模型，告诉我想要生成什么Skill吧',
+      sendCustom: '发送到资源库',
+      noModelIdTips: '请选择一个模型',
+      deleteHint:
+        '删除后，历史引用了本skills的智能体将自动取消引用，且此操作不可撤回,确定要删除吗？',
+    },
   },
 
   // 工作流/对话流

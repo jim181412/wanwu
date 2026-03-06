@@ -9,6 +9,13 @@
             @handleSearch="fetchList"
           />
         </div>
+        <el-button
+          type="primary"
+          size="small"
+          @click="$router.push({ path: `/promptEvaluate` })"
+        >
+          {{ $t('promptEvaluate.title') }}
+        </el-button>
       </div>
       <div class="card-box">
         <div class="card card-item-create">

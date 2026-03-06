@@ -2,7 +2,13 @@
   <div class="layout full-menu" :style="`background: ${bgColor}`">
     <el-container class="outer-container">
       <!-- 左侧内容 -->
-      <div v-if="isShowMenu" class="left-aside-container">
+      <div
+        v-if="isShowMenu"
+        :class="[
+          'left-aside-container',
+          { 'left-aside-container-isCollapse': isCollapse },
+        ]"
+      >
         <div class="left-header-container">
           <div
             style="padding-top: 10px; text-align: center"
@@ -466,6 +472,7 @@ export default {
     menuClick(item) {
       if (item.redirect) {
         item.redirect();
+        this.changeMenuIndex(item.index);
       } else {
         if (item.path) this.$router.push({ path: item.path });
       }
@@ -530,8 +537,10 @@ export default {
 
     .left-aside-container {
       position: relative;
+      width: 208px;
       background: #fff;
       border-right: 1px solid #d8d8d8;
+      transition: width 0.25s linear !important;
       .left-header-container {
         position: absolute;
         top: 0;
@@ -624,11 +633,17 @@ export default {
       }
     }
 
+    .left-aside-container.left-aside-container-isCollapse {
+      width: 65px;
+      .el-aside.full-menu-aside {
+        height: calc(100vh - 200px) !important;
+      }
+    }
+
     /*element ui 样式重写*/
     .el-aside.full-menu-aside {
       height: calc(100vh - 178px);
       width: 100% !important;
-      background: #fff;
       border-radius: 10px 0 0 10px;
       margin-top: 110px;
       position: relative;
@@ -743,9 +758,7 @@ export default {
         }
       }
     }
-    .el-aside.full-menu-isCollapse.full-menu-aside {
-      height: calc(100vh - 200px);
-    }
+
     .inner-container {
       width: calc(100% - 80px);
       height: 100%;
@@ -767,6 +780,7 @@ export default {
         overflow: auto;
         .page-container {
           height: 100%;
+          overflow-x: auto;
           .right-page-content {
             min-width: 1250px;
             min-height: calc(100% - 32px);

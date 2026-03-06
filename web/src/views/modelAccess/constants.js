@@ -133,7 +133,7 @@ export const TYPE_OBJ = {
     [`${GUI}_${YUAN_JING}`]: 'https://maas-api.ai-yuanjing.com/openapi/v1',
     [`${PDF_PARSER}_${YUAN_JING}`]:
       'https://maas-api.ai-yuanjing.com/openapi/v1',
-    [YUAN_JING]: 'https://maas.ai-yuanjing.com/openapi/compatible-mode/v1',
+    [YUAN_JING]: 'https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1',
     [OPENAI_API]: 'https://api.siliconflow.cn/v1',
     [OLLAMA]: 'https://192.168.21.100:11434/v1',
     [QWEN]: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -150,4 +150,24 @@ export const VIDEO = 'video';
 export const SUPPORT_FILE_TYPE_OBJ = {
   [IMAGE]: i18n.t('modelAccess.supportFileType.pic'),
   [VIDEO]: i18n.t('modelAccess.supportFileType.video'),
+};
+
+export const PRIVATE = '1'; // 仅自己可见
+export const ALL = '2'; // 全局可见
+export const ORG = '3'; // 组织内可见
+export const SCOPE_TYPE_LIST = [
+  { key: PRIVATE, name: i18n.t('modelAccess.table.private') },
+  { key: ALL, name: i18n.t('modelAccess.table.all') },
+  { key: ORG, name: i18n.t('modelAccess.table.org') },
+];
+export const PUBLIC_MODEL = 'public';
+export const MINE_MODEL = 'private';
+export const TAB_LIST = [
+  { name: i18n.t('modelAccess.all'), type: '' },
+  { name: i18n.t('modelAccess.public'), type: PUBLIC_MODEL },
+  { name: i18n.t('modelAccess.private'), type: MINE_MODEL },
+];
+export const SCOPE_TYPE_OBJ = {
+  [PUBLIC_MODEL]: SCOPE_TYPE_LIST.filter(item => item.key !== PRIVATE),
+  [MINE_MODEL]: SCOPE_TYPE_LIST.filter(item => item.key !== ALL),
 };

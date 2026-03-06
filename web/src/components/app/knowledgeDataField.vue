@@ -44,8 +44,31 @@
           :key="item.id"
           class="action-item"
         >
-          <div class="name">
-            <span>{{ item.name }}</span>
+          <div
+            class="name"
+            @click="handleKnowledgeLink(item.category, item.id)"
+          >
+            <span>
+              {{ item.name }}
+            </span>
+            <div class="knowledge-meta">
+              <span class="meta-text">
+                {{
+                  item.share
+                    ? $t('knowledgeManage.public')
+                    : $t('knowledgeManage.private')
+                }}
+              </span>
+              <span v-if="item.share" class="meta-text">
+                {{ item.orgName }}
+              </span>
+              <span v-if="item.external === 1" class="meta-text">
+                {{ $t('knowledgeManage.ribbon.external') }}
+              </span>
+              <span v-if="item.category === 2" class="meta-text">
+                {{ $t('knowledgeManage.ribbon.multimodal') }}
+              </span>
+            </div>
           </div>
           <div class="bt">
             <el-tooltip
@@ -159,6 +182,7 @@ export default {
     knowledgeConfig: {
       handler(val) {
         this.knowledgeList = val.knowledgebases || [];
+        console.log('knowledgeList', this.knowledgeList);
         this.knowledgeRecallConfig = val.config || {};
         this.showGraphSwitch = this.knowledgeList.some(
           item => item.graphSwitch === 1,
@@ -213,6 +237,21 @@ export default {
     showknowledgeRecallSet() {
       if (!this.knowledgeConfig.knowledgebases.length) return;
       this.$refs.knowledgeRecallField.showDialog();
+    },
+    // 跳转至知识库|问答库
+    handleKnowledgeLink(category, id) {
+      const targetRouterName =
+        category === 1
+          ? `/knowledge/qa/docList/${id}`
+          : `/knowledge/doclist/${id}`;
+      const routeData = this.$router.resolve({
+        name: targetRouterName,
+      });
+      const fullUrl = `${routeData.href}${routeData.location.name}`.replace(
+        /\/+/g,
+        '/',
+      );
+      window.open(fullUrl, '_blank');
     },
   },
 };
@@ -309,6 +348,24 @@ export default {
           overflow: hidden;
           text-overflow: ellipsis;
           margin-right: 12px;
+          cursor: pointer;
+
+          &:hover {
+            color: $color;
+          }
+
+          .knowledge-meta {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+            span {
+              padding: 2px 8px;
+              background: rgba(139, 139, 149, 0.15);
+              color: #4b4a58;
+              font-size: 12px;
+              border-radius: 6px;
+            }
+          }
         }
 
         .bt {

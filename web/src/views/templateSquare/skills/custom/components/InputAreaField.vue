@@ -1,6 +1,6 @@
 <!--问答输入框-->
 <template>
-  <div class="rl chat-input-wrapper">
+  <div class="rl chat-input-wrapper" :class="{ 'is-landing': landing }">
     <div v-if="visibleClearHistory" class="chat-input-wrapper-left">
       <el-tooltip
         class="item"
@@ -84,6 +84,7 @@
             <div
               class="aibase-textarea editable--input"
               ref="editor"
+              :style="{ minHeight: minHeight }"
               @input="getPrompt"
               @blur="onBlur"
               @keydown="textareaKeydown($event)"
@@ -104,27 +105,45 @@
             ></i>
           </div>
           <div class="edtable--wrap">
-            <el-button
-              v-if="
-                type !== 'webChat' && !(type === 'ragChat' && maxPicNum === 0)
-              "
-              class="chat-upload-btn"
-              icon="el-icon-circle-plus-outline"
-              circle
-              plain
-              @click="preUpload"
-            ></el-button>
-            <el-divider
-              v-if="
-                type !== 'webChat' && !(type === 'ragChat' && maxPicNum === 0)
-              "
-              direction="vertical"
-            ></el-divider>
-            <el-button class="editable-send-btn" circle plain @click="preSend">
-              <svg class="editable-send-icon">
-                <use xlink:href="#icon-chatSend" />
-              </svg>
-            </el-button>
+            <modelSelect
+              v-model="modelConfig.modelId"
+              :options="modelOptions"
+              :placeholder="$t('knowledgeManage.create.modelSearchPlaceholder')"
+              @visible-change="onModelVisibleChange"
+              :loading-text="$t('knowledgeManage.create.modelLoading')"
+              :loading="modelLoading"
+              :filterable="true"
+              :disabled="false"
+              :popper-class="modelPopperClass"
+            />
+            <div class="edtable--wrap-right">
+              <el-button
+                v-if="
+                  type !== 'webChat' && !(type === 'ragChat' && maxPicNum === 0)
+                "
+                class="chat-upload-btn"
+                icon="el-icon-circle-plus-outline"
+                circle
+                plain
+                @click="preUpload"
+              ></el-button>
+              <el-divider
+                v-if="
+                  type !== 'webChat' && !(type === 'ragChat' && maxPicNum === 0)
+                "
+                direction="vertical"
+              ></el-divider>
+              <el-button
+                class="editable-send-btn"
+                circle
+                plain
+                @click="preSend"
+              >
+                <svg class="editable-send-icon">
+                  <use xlink:href="#icon-chatSend" />
+                </svg>
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -175,12 +194,14 @@
 <script>
 import commonMixin from '@/mixins/common';
 import uploadChunk from '@/mixins/uploadChunk';
-import streamUploadField from './streamUploadField';
+import streamUploadField from '@/components/stream/streamUploadField';
+import modelSelect from '@/components/modelSelect.vue';
 import { mapGetters } from 'vuex';
 import {
   getPromptTemplateList,
   getPromptBuiltInList,
 } from '@/api/promptTemplate';
+import { selectModelList } from '@/api/modelAccess';
 
 export default {
   props: {
@@ -196,13 +217,26 @@ export default {
     disableClick: { type: Boolean, default: false },
     supportReminder: { type: Boolean, default: false },
     hasHistory: { type: Boolean, default: false },
+    landing: { type: Boolean, default: false },
     visibleClearHistory: { type: Boolean, default: true },
+    minHeight: { type: String, default: '22px' },
+    modelConfig: {
+      type: Object,
+      default: () => {
+        return {
+          modelId: '',
+        };
+      },
+    },
+    modelPopperClass: {
+      type: String,
+      default: '',
+    },
   },
   mixins: [commonMixin, uploadChunk],
-  components: { streamUploadField },
+  components: { streamUploadField, modelSelect },
   data() {
     return {
-      // placeholder: '请输入内容,用Ctrl+Enter可换行',
       promptValue: '',
       randomReminderShow: false,
       refreshLoading: false,
@@ -234,6 +268,8 @@ export default {
       _resizeObserver: null, // 输入框尺寸变化监听器
       isMultiLine: false,
       breakLength: 0, //记录触发换行时的字符长度
+      modelOptions: [], // 模型列表
+      modelLoading: false,
     };
   },
   watch: {
@@ -249,9 +285,7 @@ export default {
   computed: {
     ...mapGetters('app', ['maxPicNum']),
     placeholder() {
-      return this.supportReminder
-        ? this.$t('common.input.modelChatPlaceholder2')
-        : this.$t('common.input.modelChatPlaceholder1');
+      return this.$t('tempSquare.skills.createPlaceholder');
     },
   },
   mounted() {
@@ -259,6 +293,7 @@ export default {
       this.originPromptList = [];
       this.getReminderList();
     }
+    this.getModelData();
     // 监听输入框尺寸变化，用以改变输入区单行/多行布局切换
     this.$nextTick(() => {
       if (this.$refs.editor) {
@@ -471,7 +506,13 @@ export default {
     },
     preSend() {
       this.hasFile = false;
-      this.$emit('preSend');
+      this.$emit(
+        'preSend',
+        this.promptValue,
+        this.fileList,
+        this.fileIdList,
+        this.modelConfig,
+      );
     },
     setRandomReminder(n) {
       this.setPrompt(n.prompt);
@@ -545,6 +586,27 @@ export default {
     handleClearHistory() {
       this.$emit('clearHistory');
     },
+    async getModelData() {
+      this.modelLoading = true;
+      const res = await selectModelList();
+      if (res.code === 0) {
+        this.modelOptions = (res.data.list || []).filter(
+          item => !item.config || item.config.visionSupport !== 'support',
+        );
+        this.modelLoading = false;
+      }
+      this.modelLoading = false;
+    },
+    // 模型选择框显隐状态变更
+    onModelVisibleChange(val) {
+      //下拉框显示的时候请求模型列表
+      if (val) {
+        this.getModelData();
+      }
+    },
+    handleClearHistory() {
+      this.$emit('clearHistory');
+    },
   },
 };
 </script>
@@ -566,7 +628,7 @@ export default {
   .echo-img-box {
     position: absolute;
     display: flex;
-    top: -65px;
+    bottom: -65px;
     justify-content: flex-start;
     align-items: center;
     gap: 10px;
@@ -707,7 +769,7 @@ export default {
   }
 }
 .aibase-textarea {
-  min-height: 22px !important;
+  min-height: 22px;
   height: auto !important;
   padding: 0px 10px 0 0;
   flex: 1;
@@ -737,6 +799,62 @@ export default {
   flex-shrink: 0;
 }
 
+.is-landing {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+
+  .editable-box {
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+
+    &:focus-within {
+      border-color: var(--color);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .aibase-textarea {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .editable--placeholder {
+      top: 0px !important;
+      left: 0px !important;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #9ca3af;
+    }
+
+    .editable-wp-right {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0 !important;
+    }
+
+    .input-and-clear-box {
+      width: 100%;
+    }
+
+    .edtable--wrap {
+      width: 100%;
+      justify-content: space-between;
+      margin-top: 8px;
+      border-top: 1px solid #f3f4f6;
+      padding-top: 8px;
+      height: auto;
+      &-right {
+        display: flex;
+        align-items: center;
+      }
+    }
+  }
+}
+
 .edtable--wrap {
   height: 35px;
   display: flex;
@@ -748,6 +866,7 @@ export default {
     justify-content: flex-end;
   }
 }
+
 .model-box {
   padding: 10px 0;
 }

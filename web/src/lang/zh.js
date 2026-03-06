@@ -272,6 +272,8 @@ export default {
       saveErr: '保存失败',
       rollback: '回滚成功',
       rollbackErr: '回滚失败',
+      send: '发送成功',
+      sendErr: '发送失败',
     },
     safetyType: {
       political: '涉政',
@@ -525,6 +527,11 @@ export default {
     support: '支持',
     noSupport: '不支持',
     noInferUrl: '暂无统一示例',
+    all: '全部',
+    public: '公有模型',
+    private: '我的模型',
+    publicWarning:
+      '您所选的模型为公有模型，若模型所有者下线该模型，将导致应用不可用，请谨慎选择。',
     type: {
       yuanjing: '联通元景',
       qwen: '通义千问',
@@ -535,6 +542,11 @@ export default {
       asr: '语音识别模型',
     },
     table: {
+      scopeType: '公开范围',
+      all: '全局可见',
+      private: '仅自己可见',
+      org: '组织内可见',
+      model: '模型ID',
       modelName: '模型名称',
       modelDisplayName: '模型显示名称',
       modelDesc: '模型描述',
@@ -672,6 +684,20 @@ export default {
     select: '选这个',
     promptCompareLimit: '最多可添加4个提示词',
     comparePrompt: '对比提示词',
+    skills: {
+      app: {
+        builtIn: '内置',
+        custom: '自定义',
+        addText: '创建自定义Skills',
+        moreText: '点击发现更多Skills',
+      },
+      createSlogan: '一句话创建Skills',
+      createPlaceholder: '选择一款模型，告诉我想要生成什么Skill吧',
+      sendCustom: '发送到资源库',
+      noModelIdTips: '请选择一个模型',
+      deleteHint:
+        '删除后，历史引用了本skills的智能体将自动取消引用，且此操作不可撤回,确定要删除吗？',
+    },
   },
 
   // 工作流/对话流
@@ -1740,6 +1766,31 @@ export default {
     dateView: '数据视图',
     close: '关闭',
     reload: '刷新',
+  },
+  sse: {
+    sensitiveTips:
+      '您当前请求或者历史信息中包含敏感内容，根据相关安全要求，该轮对话终止，请清除历史信息或者重新开启新的对话。',
+    thinkingText: '思考中',
+    error: '未知错误',
+    connectError: '连接失败，请稍后再试',
+    incompleteError: '上个问题没有回答完！',
+    timeoutError: '请求超时，请稍后再试',
+  },
+  promptEvaluate: {
+    title: '提示词评估',
+    modelSelectLabel: '选择评估用模型',
+    modelSelectPlaceholder: '请选择模型',
+    addPrompt: '添加提示词',
+    startEvaluate: '开始评估',
+    evaluating: '评估中...',
+    prompt: '提示词',
+    inputPrompt: '填写需要评估的提示词',
+    ruleMsg: '请填写需要评估的提示词',
+    resultLabel: '期望输出的结果',
+    ruleResult: '请填写期望输出的结果',
+    exportResult: '输出结果',
+    evaluateResult: '评估结果',
+    errorTips: '评估失败，请重试',
   },
   oauth: {
     title: 'OAuth密钥管理',

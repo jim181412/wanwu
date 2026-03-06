@@ -10,12 +10,14 @@
     :loading="loading"
     :filterable="filterable"
     :clearable="clearable"
+    :popper-class="popperClass"
   >
     <el-option
       v-for="item in options"
       :key="item.modelId"
       :label="item.displayName"
       :value="item.modelId"
+      @click.native="handleOptionClick(item)"
     >
       <div class="model-option-content">
         <span class="model-name">{{ item.displayName }}</span>
@@ -73,6 +75,14 @@ export default {
       type: Boolean,
       default: false,
     },
+    popperClass: {
+      type: String,
+      default: '',
+    },
+    warning: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
@@ -93,6 +103,15 @@ export default {
     },
     handleVisibleChange(value) {
       this.$emit('visible-change', value);
+    },
+    handleOptionClick(item) {
+      const selectedOption = this.options.find(
+        option => option.modelId === item.modelId,
+      );
+      if (selectedOption?.allowEdit === false && this.warning) {
+        this.$message.warning(this.$t('modelAccess.publicWarning'));
+      }
+      this.$emit('option-click', item);
     },
   },
 };

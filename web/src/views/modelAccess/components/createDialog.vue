@@ -48,7 +48,7 @@
             {{ $t('modelAccess.table.embeddingTip') }}
           </div>
         </el-form-item>
-        <el-form-item :label="$t('modelAccess.table.modelName')" prop="model">
+        <el-form-item :label="$t('modelAccess.table.model')" prop="model">
           <el-input
             :disabled="isEdit"
             v-model="createForm.model"
@@ -62,6 +62,7 @@
           <el-input
             v-model="createForm.displayName"
             :placeholder="$t('common.hint.modelName')"
+            :disabled="!allowEdit"
           ></el-input>
         </el-form-item>
         <el-form-item :label="$t('modelAccess.table.picPath')" prop="avatar">
@@ -73,6 +74,7 @@
             :http-request="handleUploadImage"
             :on-error="handleUploadError"
             accept=".png,.jpg,.jpeg"
+            :disabled="!allowEdit"
           >
             <img
               class="upload-img"
@@ -96,6 +98,7 @@
             type="text"
             v-model="createForm.modelDesc"
             :placeholder="$t('common.input.placeholder')"
+            :disabled="!allowEdit"
           ></el-input>
         </el-form-item>
         <el-form-item
@@ -106,6 +109,7 @@
           <el-select
             v-model="createForm.functionCalling"
             :placeholder="$t('common.select.placeholder')"
+            :disabled="!allowEdit"
             style="width: 100%"
           >
             <el-option
@@ -120,6 +124,7 @@
           <el-select
             v-model="createForm.visionSupport"
             :placeholder="$t('common.select.placeholder')"
+            :disabled="!allowEdit"
             style="width: 100%"
           >
             <el-option
@@ -139,6 +144,7 @@
           <el-select
             v-model="createForm.supportFileTypes"
             :placeholder="$t('common.select.placeholder')"
+            :disabled="!allowEdit"
             style="width: 100%"
             multiple
           >
@@ -159,6 +165,7 @@
             v-model="createForm.maxImageSize"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           M
         </el-form-item>
@@ -172,6 +179,7 @@
             v-model="createForm.maxVideoClipSize"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           M
         </el-form-item>
@@ -184,6 +192,7 @@
             v-model="createForm.maxTextLength"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           tokens
         </el-form-item>-->
@@ -196,6 +205,7 @@
             v-model="createForm.maxAsrFileSize"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           M
         </el-form-item>
@@ -208,6 +218,7 @@
             v-model="createForm.contextSize"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           tokens
         </el-form-item>
@@ -220,6 +231,7 @@
             v-model="createForm.maxTokens"
             :placeholder="$t('common.input.placeholder')"
             :min="0"
+            :disabled="!allowEdit"
           ></el-input-number>
           tokens
         </el-form-item>
@@ -234,6 +246,7 @@
             :placeholder="
               $t('common.hint.apiKey') + (typeObj.apiKey[provider.key] || '--')
             "
+            :disabled="!allowEdit"
           ></el-input>
         </el-form-item>
         <div v-if="showAppAndAccessKey()">
@@ -242,6 +255,7 @@
               type="password"
               v-model="createForm.appKey"
               :placeholder="$t('common.hint.appKey')"
+              :disabled="!allowEdit"
             ></el-input>
           </el-form-item>
           <el-form-item label="Access Key" prop="accessKey">
@@ -249,6 +263,7 @@
               type="password"
               v-model="createForm.accessKey"
               :placeholder="$t('common.hint.accessKey')"
+              :disabled="!allowEdit"
             ></el-input>
           </el-form-item>
         </div>
@@ -270,7 +285,26 @@
                 typeObj.inferUrl[provider.key] ||
                 '--')
             "
+            :disabled="!allowEdit"
           ></el-input>
+        </el-form-item>
+        <el-form-item
+          :label="$t('modelAccess.table.scopeType')"
+          prop="scopeType"
+        >
+          <el-select
+            v-model="createForm.scopeType"
+            :placeholder="$t('common.select.placeholder')"
+            :disabled="!allowEdit || isEdit"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in getScopeTypeList()"
+              :key="item.key"
+              :label="item.name"
+              :value="item.key"
+            ></el-option>
+          </el-select>
         </el-form-item>
         <!--<el-form-item :label="$t('modelAccess.table.publishTime')" prop="publishDate">
           <el-date-picker
@@ -278,6 +312,7 @@
             type="date"
             value-format="yyyy-MM-dd"
             :placeholder="$t('common.select.placeholder')"
+            :disabled="!allowEdit"
           >
           </el-date-picker>
         </el-form-item>-->
@@ -285,7 +320,7 @@
           {{ row.uuid || '--' }}
         </el-form-item>
       </el-form>
-      <span slot="footer" class="dialog-footer">
+      <span slot="footer" class="dialog-footer" v-if="allowEdit">
         <el-button @click="handleClose">
           {{ $t('common.button.cancel') }}
         </el-button>
@@ -322,6 +357,10 @@ import {
   IMAGE,
   VIDEO,
   HUOSHAN,
+  SCOPE_TYPE_LIST,
+  PRIVATE,
+  ORG,
+  ALL,
 } from '../constants';
 import LinkIcon from '@/components/linkIcon.vue';
 
@@ -339,7 +378,8 @@ export default {
       }
     };
     return {
-      basePath: this.$basePath,
+      isSystem: this.$store.state.user.permission.isSystem || false,
+      allowEdit: true,
       defaultLogo: require('@/assets/imgs/model_default_icon.png'),
       dialogVisible: false,
       modelType: [],
@@ -364,6 +404,7 @@ export default {
         model: '',
         displayName: '',
         endpointUrl: '',
+        scopeType: PRIVATE,
         apiKey: '',
         appKey: '',
         accessKey: '',
@@ -455,6 +496,13 @@ export default {
           },
           { validator: validateUrls, trigger: 'blur' },
         ],
+        scopeType: [
+          {
+            required: true,
+            message: this.$t('common.select.placeholder'),
+            trigger: 'change',
+          },
+        ],
         /*supportFileTypes: [
           {
             required: true,
@@ -490,6 +538,12 @@ export default {
   },
   methods: {
     avatarSrc,
+    getScopeTypeList() {
+      // 系统管理员可设置的公开范围（个人、全局），普通用户可设置的公开范围（个人、组织内）
+      return this.isSystem
+        ? SCOPE_TYPE_LIST.filter(item => item.key !== ORG)
+        : SCOPE_TYPE_LIST.filter(item => item.key !== ALL);
+    },
     isMultiModal() {
       return [MULTIMODAL_RERANK, MULTIMODAL_EMBEDDING].includes(
         this.createForm.modelType,
@@ -557,6 +611,8 @@ export default {
       }
     },
     openDialog(title, row) {
+      // 创建或者允许编辑时，可操作
+      this.allowEdit = !row || row.allowEdit;
       this.provider = { key: title, name: PROVIDER_OBJ[title] };
       const currentProvider =
         PROVIDER_TYPE.find(item => item.key === title) || {};
@@ -584,6 +640,7 @@ export default {
         modelType: LLM,
         functionCalling: DEFAULT_CALLING,
         visionSupport: DEFAULT_SUPPORT,
+        scopeType: PRIVATE,
         contextSize: 8000,
         maxTokens: 4096,
         maxAsrFileSize: 10,

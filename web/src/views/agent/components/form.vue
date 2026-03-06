@@ -217,41 +217,18 @@
               </span>
             </p>
             <div class="rl">
-              <el-select
+              <modelSelect
                 v-model="editForm.modelParams"
+                :options="modelOptions"
                 :placeholder="$t('agent.form.modelSearchPlaceholder')"
                 @visible-change="visibleChange"
                 :loading-text="$t('agent.toolDetail.modelLoadingText')"
                 class="cover-input-icon model-select"
                 :loading="modelLoading"
                 filterable
-                value-key="modelId"
+                warning
                 @change="handleModelChange($event)"
-              >
-                <el-option
-                  class="model-option-item"
-                  v-for="item in modelOptions"
-                  :key="item.modelId"
-                  :value="item.modelId"
-                  :label="item.displayName"
-                >
-                  <div class="model-option-content">
-                    <span class="model-name">{{ item.displayName }}</span>
-                    <div
-                      class="model-select-tags"
-                      v-if="item.tags && item.tags.length > 0"
-                    >
-                      <span
-                        v-for="(tag, tagIdx) in item.tags"
-                        :key="tagIdx"
-                        class="model-select-tag"
-                      >
-                        {{ tag.text }}
-                      </span>
-                    </div>
-                  </div>
-                </el-option>
-              </el-select>
+              />
               <div
                 class="model-select-tips"
                 v-if="editForm.visionsupport === 'support'"
@@ -716,9 +693,11 @@ import ModelSelector from './ModelSelector.vue';
 import commonMixin from '@/mixins/common';
 
 import { avatarSrc } from '@/utils/util';
+import modelSelect from '@/components/modelSelect.vue';
 export default {
   mixins: [commonMixin],
   components: {
+    modelSelect,
     CopyIcon,
     VersionPopover,
     LinkIcon,
