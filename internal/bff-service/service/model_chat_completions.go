@@ -120,7 +120,7 @@ func ModelChatCompletions(ctx *gin.Context, modelID string, req *mp_common.LLMRe
 		} else {
 			dataStr = fmt.Sprintf("%v\n", sseResp.String())
 		}
-		log.Infof("model %v chat completions sse: %v", modelInfo.ModelId, dataStr)
+		// log.Debugf("model %v chat completions sse: %v", modelInfo.ModelId, dataStr)
 		if _, err = ctx.Writer.Write([]byte(dataStr)); err != nil {
 			log.Errorf("model %v chat completions sse err: %v", modelInfo.ModelId, err)
 		}

@@ -327,7 +327,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 			return err
 		}
 		// skillName, skillDesc
-		_, skillName, skillDesc, err := extractSkillMarkdown(zipBytes)
+		_, skillName, skillDesc, err := extractSkillMarkdownFromZip(zipBytes)
 		if err != nil {
 			return err
 		}

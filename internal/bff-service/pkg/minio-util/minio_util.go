@@ -140,28 +140,17 @@ func DownloadFileDirect(ctx context.Context, minioUrl string) ([]byte, error) {
 		LogLevel:   http_client.LogParams,
 	})
 	if err != nil {
-		log.Errorf("DownloadFileToLocalDirect error %s", err)
-		return nil, err
+		return nil, fmt.Errorf("DownloadFileDirect (%v) err: %v", minioUrl, err)
 	}
-
-	defer func() {
-		err2 := resp.Body.Close()
-		if err2 != nil {
-			log.Errorf("DownloadFile %s close resp.Body error: %s", minioUrl, err2)
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download failed with status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("DownloadFileDirect (%v) status: %v", minioUrl, resp.StatusCode)
 	}
-
-	buf := bytes.NewBuffer(nil)
-	_, err = io.Copy(buf, resp.Body)
-
-	if err != nil && !util.FileEOF(err) {
-		log.Errorf("DownloadFileToLocal copy to buffer error: %s, path: %s", err, minioUrl)
-		return nil, fmt.Errorf("minio file copy to buffer error: %w", err)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("DownloadFileDirect (%v) read body err: %v", minioUrl, err)
 	}
-	return buf.Bytes(), nil
+	return data, nil
 }
 
 // SplitMinioPath 解析minio文件完整URL路径，拆分出对应的存储桶名、对象完整路径、文件名

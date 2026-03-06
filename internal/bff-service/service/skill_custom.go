@@ -5,13 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net/http"
 	"path/filepath"
 
 	errs "github.com/UnicomAI/wanwu/api/proto/err-code"
 	mcp_service "github.com/UnicomAI/wanwu/api/proto/mcp-service"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
+	minio_util "github.com/UnicomAI/wanwu/internal/bff-service/pkg/minio-util"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 	"github.com/UnicomAI/wanwu/pkg/minio"
 	"github.com/UnicomAI/wanwu/pkg/util"
@@ -22,7 +22,7 @@ const (
 	customSkillFileType = ".zip"
 )
 
-func extractSkillMarkdown(zipData []byte) (string, string, string, error) {
+func extractSkillMarkdownFromZip(zipData []byte) (string, string, string, error) {
 	reader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to read zip file: %v", err)
@@ -77,21 +77,13 @@ func CreateCustomSkill(ctx *gin.Context, userId, orgId string, req request.Creat
 
 	if req.ZipUrl != "" {
 		// 下载文件
-		resp, err := http.Get(req.ZipUrl)
+		data, err := minio_util.DownloadFileDirect(ctx.Request.Context(), req.ZipUrl)
 		if err != nil {
-			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("download skill zip (%v) err: %v", req.ZipUrl, err))
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode != http.StatusOK {
-			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("download skill zip (%v) status: %v", req.ZipUrl, resp.StatusCode))
-		}
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("download skill zip (%v) read data err: %v", req.ZipUrl, err))
+			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("download skill zip err: %v", err))
 		}
 
 		// 解压并查找SKILL.md文件，提取name和description
-		mdContent, name, desc, err := extractSkillMarkdown(data)
+		mdContent, name, desc, err := extractSkillMarkdownFromZip(data)
 		if err != nil {
 			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
 		}

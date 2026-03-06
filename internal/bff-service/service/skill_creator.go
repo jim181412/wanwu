@@ -100,10 +100,17 @@ func filterOpencodeEvents(jsonCh <-chan string) <-chan string {
 				}
 				resultCh <- fmt.Sprintf("工具名称: %s", toolPart.Tool)
 				resultCh <- fmt.Sprintf("<tool>\n\n%s工具参数: \n%s\n%s\n\n\\", "```", toolPart.State.Input, "```")
-				if toolPart.State.Output != "" {
-					resultCh <- fmt.Sprintf("%s%s 调用结果：\n %s %s", "```", toolPart.Tool, toolPart.State.Output, "```")
-				}
+				// 工具调用结果输出可能较长，暂不输出
+				// if toolPart.State.Output != "" {
+				// 	resultCh <- fmt.Sprintf("%s%s 调用结果：\n %s %s", "```", toolPart.Tool, toolPart.State.Output, "```")
+				// }
 				resultCh <- "</tool>"
+			case wga_sandbox.OpencodeEventTypeError:
+				opencodeErrorPart, err := wga_sandbox.ParseOpencodeErrorPart(event.Part)
+				if err != nil {
+					continue
+				}
+				resultCh <- fmt.Sprintf("%v: %v", opencodeErrorPart.Error.Name, opencodeErrorPart.Error.Data.Message)
 			}
 		}
 	}()
