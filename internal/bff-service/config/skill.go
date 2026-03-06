@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	akConfigDir = "configs/microservice/bff-service/configs/agent-skills"
+	builtinSkillsConfigDir = "configs/microservice/bff-service/configs/agent-skills"
 )
 
 type SkillsConfig struct {
@@ -23,14 +23,24 @@ type SkillsConfig struct {
 	SkillMarkdown []byte `json:"-" mapstructure:"-"`
 }
 
+type SkillCreatorConfig struct {
+	Instruction    string        `json:"instruction" mapstructure:"instruction"`
+	EnableThinking bool          `json:"enable_thinking" mapstructure:"enable_thinking"`
+	Skills         []SkillConfig `json:"skills" mapstructure:"skills"`
+}
+
+type SkillConfig struct {
+	Dir string `json:"dir" mapstructure:"dir"`
+}
+
 func (stf *SkillsConfig) AgentSkillZipToBytes(skillsId string) ([]byte, error) {
-	return util.DirToBytes(filepath.Join(akConfigDir, skillsId))
+	return util.ZipDir(filepath.Join(builtinSkillsConfigDir, skillsId))
 }
 
 // --- internal ---
 
 func (stf *SkillsConfig) load() error {
-	markdownPath := filepath.Join(akConfigDir, stf.MdPath)
+	markdownPath := filepath.Join(builtinSkillsConfigDir, stf.MdPath)
 	b, err := os.ReadFile(markdownPath)
 	if err != nil {
 		return fmt.Errorf("load skill %v markdown path %v err: %v", stf.SkillId, markdownPath, err)

@@ -912,6 +912,9 @@ definitions:
     type: object
   request.AppQAKnowledgeBase:
     properties:
+      category:
+        description: 知识库类别 0-知识库，1-问答库，2-多模态知识库
+        type: integer
       id:
         description: 知识库id
         type: string
@@ -1557,6 +1560,26 @@ definitions:
     required:
     - name
     type: object
+  request.CreateCustomSkillReq:
+    properties:
+      author:
+        type: string
+      avatar:
+        $ref: '#/definitions/request.Avatar'
+      desc:
+        type: string
+      name:
+        type: string
+      saveId:
+        type: string
+      sourceType:
+        type: string
+      zipUrl:
+        type: string
+    required:
+    - author
+    - zipUrl
+    type: object
   request.CreateDocChildSegmentReq:
     properties:
       content:
@@ -1737,6 +1760,14 @@ definitions:
         type: string
     required:
     - tableName
+    type: object
+  request.CreateSkillConversationReq:
+    properties:
+      title:
+        description: 会话标题
+        type: string
+    required:
+    - title
     type: object
   request.CreateWorkflowByTemplateReq:
     properties:
@@ -2081,6 +2112,14 @@ definitions:
         type: string
     required:
     - tableId
+    type: object
+  request.DeleteSkillConversationReq:
+    properties:
+      conversationId:
+        description: 会话ID
+        type: string
+    required:
+    - conversationId
     type: object
   request.DocConfigUpdateReq:
     properties:
@@ -3388,6 +3427,39 @@ definitions:
     required:
     - tableId
     type: object
+  request.SkillConversationChatReq:
+    properties:
+      conversationId:
+        description: 会话ID
+        type: string
+      fileInfo:
+        description: 上传的文件信息
+        items:
+          $ref: '#/definitions/request.ConversionStreamFile'
+        type: array
+      modelConfig:
+        allOf:
+        - $ref: '#/definitions/request.AppModelConfig'
+        description: 模型
+      query:
+        description: 用户提问
+        type: string
+    required:
+    - conversationId
+    - query
+    type: object
+  request.SkillConversationSaveReq:
+    properties:
+      conversationId:
+        description: 会话ID
+        type: string
+      skillSaveId:
+        description: 技能ID
+        type: string
+    required:
+    - conversationId
+    - skillSaveId
+    type: object
   request.ToolSquareAPIKeyReq:
     properties:
       apiKey:
@@ -3907,28 +3979,6 @@ definitions:
         description: 状态
         type: boolean
     type: object
-  response.AgentSkillDetail:
-    properties:
-      author:
-        description: 作者
-        type: string
-      avatar:
-        allOf:
-        - $ref: '#/definitions/request.Avatar'
-        description: 模板头像
-      desc:
-        description: 模板描述
-        type: string
-      name:
-        description: 模板名称
-        type: string
-      skillId:
-        description: 模板ID
-        type: string
-      skillMarkdown:
-        description: 模板markdown预览
-        type: string
-    type: object
   response.AnalysisDocUrlResp:
     properties:
       urlList:
@@ -4189,6 +4239,23 @@ definitions:
   response.AssistantRequestFile:
     properties:
       fileUrl:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  response.AssistantResponseFile:
+    properties:
+      fileUrl:
+        type: string
+      metadata:
+        additionalProperties: true
+        description: |-
+          扩展信息：
+          skill => {"name":"技能名称", "desc":"技能描述", "author":"技能作者", "avatar":{"path":"技能图标"}, "inResource": bool, "expiredAt": "过期时间7天", "skillSaveId": "保存的技能ID"}
+        type: object
+      mimeType:
         type: string
       name:
         type: string
@@ -4727,6 +4794,12 @@ definitions:
         description: 敏感词表id
         type: string
     type: object
+  response.CreateSkillConversationResp:
+    properties:
+      conversationId:
+        description: 会话ID
+        type: string
+    type: object
   response.CustomAbout:
     properties:
       copyright:
@@ -4837,6 +4910,35 @@ definitions:
         allOf:
         - $ref: '#/definitions/response.CustomEmail'
         description: 邮箱
+    type: object
+  response.CustomSkillDetail:
+    properties:
+      author:
+        description: 作者
+        type: string
+      avatar:
+        allOf:
+        - $ref: '#/definitions/request.Avatar'
+        description: 模板头像
+      desc:
+        description: 模板描述
+        type: string
+      name:
+        description: 模板名称
+        type: string
+      skillId:
+        description: 模板ID
+        type: string
+      skillMarkdown:
+        description: 模板markdown预览
+        type: string
+      zipUrl:
+        type: string
+    type: object
+  response.CustomSkillIDResp:
+    properties:
+      skillId:
+        type: string
     type: object
   response.CustomTab:
     properties:
@@ -6650,6 +6752,84 @@ definitions:
         description: 敏感词id
         type: string
     type: object
+  response.SkillConversationDetailInfo:
+    properties:
+      assistantId:
+        type: string
+      conversationId:
+        type: string
+      createdAt:
+        type: integer
+      createdBy:
+        type: string
+      fileName:
+        type: string
+      fileSize:
+        type: integer
+      id:
+        type: string
+      prompt:
+        type: string
+      qa_type:
+        type: integer
+      requestFiles:
+        items:
+          $ref: '#/definitions/response.AssistantRequestFile'
+        type: array
+      response:
+        type: string
+      responseFiles:
+        items:
+          $ref: '#/definitions/response.AssistantResponseFile'
+        type: array
+      responseList:
+        items:
+          $ref: '#/definitions/response.ConversationResponse'
+        type: array
+      searchList: {}
+      subConversationList:
+        items:
+          $ref: '#/definitions/response.SubConversation'
+        type: array
+      sysPrompt:
+        type: string
+      updatedAt:
+        type: integer
+    type: object
+  response.SkillConversationItem:
+    properties:
+      conversationId:
+        description: 会话ID
+        type: string
+      createdAt:
+        description: 创建时间
+        type: string
+      title:
+        description: 会话标题
+        type: string
+    type: object
+  response.SkillDetail:
+    properties:
+      author:
+        description: 作者
+        type: string
+      avatar:
+        allOf:
+        - $ref: '#/definitions/request.Avatar'
+        description: 模板头像
+      desc:
+        description: 模板描述
+        type: string
+      name:
+        description: 模板名称
+        type: string
+      skillId:
+        description: 模板ID
+        type: string
+      skillMarkdown:
+        description: 模板markdown预览
+        type: string
+    type: object
   response.StatisticChart:
     properties:
       lines:
@@ -7130,6 +7310,292 @@ info:
   title: AI Agent Productivity Platform API
   version: v0.0.1
 paths:
+  /agent/skill/conversation:
+    delete:
+      consumes:
+      - application/json
+      description: 删除Skill生成会话
+      parameters:
+      - description: 会话ID
+        in: body
+        name: conversationId
+        required: true
+        schema:
+          $ref: '#/definitions/request.DeleteSkillConversationReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除Skill生成会话
+      tags:
+      - skill.conversation
+    post:
+      consumes:
+      - application/json
+      description: 创建Skill生成会话
+      parameters:
+      - description: 创建会话参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateSkillConversationReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CreateSkillConversationResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 创建Skill生成会话
+      tags:
+      - skill.conversation
+  /agent/skill/conversation/chat:
+    post:
+      consumes:
+      - application/json
+      description: Skill生成流式对话
+      parameters:
+      - description: 对话参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.SkillConversationChatReq'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: stream
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Skill生成流式对话
+      tags:
+      - skill.conversation
+  /agent/skill/conversation/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取Skill生成会话详情
+      parameters:
+      - description: 会话ID
+        in: query
+        name: conversationId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.ListResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.SkillConversationDetailInfo'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 获取Skill生成会话详情
+      tags:
+      - skill.conversation
+  /agent/skill/conversation/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取Skill生成会话列表
+      parameters:
+      - description: 页码
+        in: query
+        name: pageNo
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.SkillConversationItem'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 获取Skill生成会话列表
+      tags:
+      - skill.conversation
+  /agent/skill/conversation/save:
+    post:
+      consumes:
+      - application/json
+      description: Skill发送到资源库
+      parameters:
+      - description: 会话ID和保存的技能ID
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.SkillConversationSaveReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: Skill发送到资源库
+      tags:
+      - skill.conversation
+  /agent/skill/custom:
+    delete:
+      consumes:
+      - application/json
+      description: 删除自定义skill
+      parameters:
+      - description: skill ID
+        in: query
+        name: skillId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除自定义skill
+      tags:
+      - resource.skill
+    post:
+      consumes:
+      - application/json
+      description: 创建自定义skill
+      parameters:
+      - description: 自定义skill信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateCustomSkillReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CustomSkillIDResp'
+              type: object
+      security:
+      - JWT: []
+      summary: 创建自定义skill
+      tags:
+      - resource.skill
+  /agent/skill/custom/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取自定义skill详情
+      parameters:
+      - description: skill ID
+        in: query
+        name: skillId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CustomSkillDetail'
+              type: object
+      security:
+      - JWT: []
+      summary: 获取自定义skill详情
+      tags:
+      - resource.skill
+  /agent/skill/custom/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取自定义skill列表
+      parameters:
+      - description: skill名称
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.ListResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.CustomSkillDetail'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 获取自定义skill列表
+      tags:
+      - resource.skill
   /agent/skill/detail:
     get:
       consumes:
@@ -7151,13 +7617,13 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/response.AgentSkillDetail'
+                  $ref: '#/definitions/response.SkillDetail'
               type: object
       security:
       - JWT: []
       summary: 获取skill模板详情
       tags:
-      - guest
+      - resource.skill
   /agent/skill/download:
     get:
       consumes:
@@ -7180,7 +7646,7 @@ paths:
       - JWT: []
       summary: 下载skill模板
       tags:
-      - guest
+      - resource.skill
   /agent/skill/list:
     get:
       consumes:
@@ -7206,7 +7672,7 @@ paths:
                   - properties:
                       list:
                         items:
-                          $ref: '#/definitions/response.AgentSkillDetail'
+                          $ref: '#/definitions/response.SkillDetail'
                         type: array
                     type: object
               type: object
@@ -7214,7 +7680,7 @@ paths:
       - JWT: []
       summary: 获取skill模板列表
       tags:
-      - guest
+      - resource.skill
   /api/key:
     delete:
       consumes:
