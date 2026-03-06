@@ -12,6 +12,20 @@ import (
 )
 
 func (c *Client) CreateCustomSkill(ctx context.Context, customSkill *model.CustomSkill) (string, *err_code.Status) {
+	// 检查是否已存在（根据source_type、save_id、user_id、org_id判断唯一性）
+	var count int64
+	if err := sqlopt.SQLOptions(
+		sqlopt.WithUserID(customSkill.UserId),
+		sqlopt.WithOrgID(customSkill.OrgId),
+		sqlopt.WithCustomSkillSaveId(customSkill.SaveId),
+		sqlopt.WithCustomSkillSourceType(customSkill.SourceType),
+	).Apply(c.db).WithContext(ctx).Model(&model.CustomSkill{}).Count(&count).Error; err != nil {
+		return "", toErrStatus("mcp_custom_skill_check_exists", err.Error())
+	}
+	if count > 0 {
+		return "", toErrStatus("mcp_custom_skill_save_id_exists")
+	}
+
 	status := c.transaction(ctx, func(tx *gorm.DB) *err_code.Status {
 		if err := tx.WithContext(ctx).Create(customSkill).Error; err != nil {
 			return toErrStatus("mcp_custom_skill_create", err.Error())
