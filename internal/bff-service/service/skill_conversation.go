@@ -15,6 +15,7 @@ import (
 	model_service "github.com/UnicomAI/wanwu/api/proto/model-service"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
+	minio_util "github.com/UnicomAI/wanwu/internal/bff-service/pkg/minio-util"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 	"github.com/UnicomAI/wanwu/pkg/log"
 	"github.com/UnicomAI/wanwu/pkg/minio"
@@ -197,10 +198,29 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	}
 
 	// 存储路径 /tmp/skills/<uuid>
-	outputDir := filepath.Join("/tmp/skills", util.GenUUID())
+	messageId := util.GenUUID()
+	workspaceDir := filepath.Join("/tmp/skills", messageId)
+
+	var inputDir string
+	if len(req.FileInfo) > 0 {
+		inputDir = workspaceDir
+		if err := os.MkdirAll(inputDir, 0755); err != nil {
+			return grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("create workspace directory err: %v", err))
+		}
+		for _, fileInfo := range req.FileInfo {
+			localPath := filepath.Join(inputDir, fileInfo.FileName)
+			data, err := minio_util.DownloadFileDirect(ctx.Request.Context(), fileInfo.FileUrl)
+			if err != nil {
+				return grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("download file %s err: %v", fileInfo.FileName, err))
+			}
+			if err := os.WriteFile(localPath, data, 0644); err != nil {
+				return grpc_util.ErrorStatus(errs.Code_BFFGeneral, fmt.Sprintf("save file %s into workspace err: %v", fileInfo.FileName, err))
+			}
+		}
+	}
 
 	// 流式问答
-	streamCh, err := RunSkillCreator(ctx, modelConfig, "", outputDir, req.Query, messages)
+	streamCh, err := RunSkillCreator(ctx, modelConfig, messageId, inputDir, workspaceDir, req.Query, messages)
 	if err != nil {
 		return grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
 	}
@@ -208,7 +228,7 @@ func SkillConversationChat(ctx *gin.Context, userId, orgId string, req request.S
 	// 处理流式问答
 	var responseStr string
 	_ = sse_util.NewSSEWriter(ctx, fmt.Sprintf("[Skill] conversation %v user %v org %v recv", req.ConversationId, userId, orgId), sse_util.DONE_EMPTY).
-		WriteStream(streamCh, nil, buildSkillChatRespLineProcessor(&responseStr), buildSkillChatDoneProcessor(ctx, userId, orgId, req, outputDir, &responseStr))
+		WriteStream(streamCh, nil, buildSkillChatRespLineProcessor(&responseStr), buildSkillChatDoneProcessor(ctx, userId, orgId, req, messageId, workspaceDir, &responseStr))
 	return nil
 }
 
@@ -278,10 +298,9 @@ func getSkillConversationDetailListFromES(ctx *gin.Context, conversationId strin
 	return respList, nil
 }
 
-func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req request.SkillConversationChatReq, outputDir string, responseStr *string) func(sse_util.SSEWriterClient[string], interface{}) error {
+func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req request.SkillConversationChatReq, messageId, outputDir string, responseStr *string) func(sse_util.SSEWriterClient[string], interface{}) error {
 	return func(c sse_util.SSEWriterClient[string], params interface{}) error {
 
-		mesageId := util.GenUUID()
 		lastSSE := response.SkillConversationSSEData{
 			ConversationSSEData: response.ConversationSSEData{
 				Message: "success",
@@ -293,7 +312,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 			// save to es
 			b, _ := json.Marshal(&response.SkillConversationDetailInfo{
 				ConversationDetailInfo: response.ConversationDetailInfo{
-					Id:             mesageId,
+					Id:             messageId,
 					ConversationId: req.ConversationId,
 					Prompt:         req.Query,
 					Response:       *responseStr,
@@ -349,7 +368,7 @@ func buildSkillChatDoneProcessor(ctx *gin.Context, userId, orgId string, req req
 				"avatar":      cacheSkillAvatar(ctx, ""),
 				"inResource":  false,
 				"expiredAt":   util.Time2Str(time.Now().AddDate(0, 0, 7).UnixMilli()), // 7天后过期
-				"skillSaveId": mesageId,
+				"skillSaveId": messageId,
 			},
 		})
 		// 删除临时文件
