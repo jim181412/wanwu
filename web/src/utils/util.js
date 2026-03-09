@@ -124,6 +124,16 @@ export const copyCb = () => {
   Message.success(i18n.t('common.copy.success'));
 };
 
+export const resDownloadFile = (response = {}, fileName) => {
+  const blob = new Blob([response], { type: response.type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  window.URL.revokeObjectURL(link.href);
+};
+
 export const getInitTimeRange = () => {
   const date = new Date();
   const month = date.getMonth() + 1;
