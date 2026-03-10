@@ -157,8 +157,7 @@ def parse_doc(file_url, sentence_size, overlap_size):
                 "\u3001",  # 顿号
                 "\uff0e",  # 全角句号
                 "\u3002",  # 句号
-                ".",
-                "",
+                "."
             ],
         }
     )
