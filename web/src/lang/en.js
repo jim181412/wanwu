@@ -681,6 +681,26 @@ export default {
       noModelIdTips: '请选择一个模型',
       deleteHint:
         '删除后，历史引用了本skills的智能体将自动取消引用，且此操作不可撤回,确定要删除吗？',
+      form: {
+        importTitle: '导入Skills',
+        avatar: 'Skill图标',
+        author: '作者',
+        upload: '上传',
+        name: '名称',
+        desc: '描述',
+        uploadPlaceholder: '选择上传文件',
+        uploadTips: '只能上传zip格式文件，文件大小不能超过20M',
+        authorPlaceholder: '请填写作者名称',
+      },
+      formRules: {
+        avatar: '请上传图标',
+        name: '请填写名称',
+        desc: '请填写描述',
+        zipFormat: '请上传zip格式文件',
+        zipSize: '文件大小不能超过20M',
+        zipUrl: '请上传文件',
+        zipCheckFailed: '文件校验失败，请重新上传',
+      },
     },
   },
 
