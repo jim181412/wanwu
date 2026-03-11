@@ -302,7 +302,7 @@ export default {
     workflow: '工作流',
     chat: '对话流',
     rag: '知识问答',
-    agent: '智能体',
+    agent: '子智能体',
     agentTemp: '智能体模板',
     agentAuto: '自定义智能体',
     publishSet: '发布配置',

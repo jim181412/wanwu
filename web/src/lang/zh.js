@@ -318,7 +318,7 @@ export default {
     workflow: '工作流',
     chat: '对话流',
     rag: '知识问答',
-    agent: '智能体',
+    agent: '单智能体',
     agentTemp: '智能体模板',
     agentAuto: '自定义智能体',
     publishSet: '发布配置',
@@ -1690,7 +1690,7 @@ export default {
       config: '配置',
       metaDataFilter: '元数据过滤',
       tool: '工具',
-      multiAgent: '多智能体配置',
+      multiAgent: '子智能体配置',
       multiAgentConfig: '编辑智能体描述',
       multiAgentConfigPlaceholder:
         '请详细描述该智能体可以做什么，以便更加贴切的调用该智能体能力',
