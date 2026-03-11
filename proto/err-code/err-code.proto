@@ -20,6 +20,7 @@ enum Code {
   BFFSingleLoginDisable = 110009; // 单因子登录禁用
   BFFAppType = 110010; // 应用类型错误
   BFFModelStatus = 110011; // 模型状态错误
+  BFFSkillParse = 110012; // 技能解析错误
 
   // --- iam-service ---
   // [120000, 129999]

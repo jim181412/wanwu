@@ -36,7 +36,7 @@ func CreateCustomSkill(ctx *gin.Context, userId, orgId string, avatarKey, author
 		// 解压并查找SKILL.md文件，提取name和description
 		mdContent, fm, err := util.ExtractSkillMarkdownFromZip(data)
 		if err != nil {
-			return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
+			return nil, grpc_util.ErrorStatus(errs.Code_BFFSkillParse, err.Error())
 		}
 		markdownContent = mdContent
 
@@ -145,7 +145,7 @@ func CheckCustomSkill(ctx *gin.Context, userId, orgId, zipUrl string) (*response
 	// 解压并查找SKILL.md文件，验证zip包是否有效
 	_, fm, err := util.ExtractSkillMarkdownFromZip(data)
 	if err != nil {
-		return nil, grpc_util.ErrorStatus(errs.Code_BFFGeneral, err.Error())
+		return nil, grpc_util.ErrorStatus(errs.Code_BFFSkillParse, err.Error())
 	}
 
 	return &response.CustomSkillCheckResp{

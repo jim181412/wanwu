@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -14,6 +15,12 @@ import (
 type FrontMatter struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
+}
+
+var kebabCaseRegex = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+
+func isValidKebabCase(name string) bool {
+	return kebabCaseRegex.MatchString(name)
 }
 
 // ParseSkillFrontMatter 解析技能的Markdown内容，提取FrontMatter
@@ -36,6 +43,12 @@ func ParseSkillFrontMatter(content string) (*FrontMatter, error) {
 	if err := yaml.Unmarshal([]byte(frontMatterStr), &fm); err != nil {
 		return nil, fmt.Errorf("failed to parse frontmatter: %v", err)
 	}
+	if fm.Name == "" || fm.Description == "" {
+		return nil, fmt.Errorf("SKILL.md file must contain both name and description in front matter")
+	}
+	if !isValidKebabCase(fm.Name) {
+		return nil, fmt.Errorf("SKILL.md file name must be in kebab-case")
+	}
 
 	return &fm, nil
 }
@@ -48,9 +61,7 @@ func ExtractSkillMarkdownFromZip(zipData []byte) (string, *FrontMatter, error) {
 	}
 
 	var skillMdFile *zip.File
-	var allFiles []string
 	for _, file := range reader.File {
-		allFiles = append(allFiles, file.Name)
 		fileName := filepath.Base(file.Name)
 		if fileName == "SKILL.md" {
 			skillMdFile = file
@@ -59,7 +70,7 @@ func ExtractSkillMarkdownFromZip(zipData []byte) (string, *FrontMatter, error) {
 	}
 
 	if skillMdFile == nil {
-		return "", nil, fmt.Errorf("SKILL.md file not found in the zip archive. Files: %v", allFiles)
+		return "", nil, fmt.Errorf("SKILL.md file not found in the zip archive")
 	}
 
 	rc, err := skillMdFile.Open()
