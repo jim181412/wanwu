@@ -215,3 +215,12 @@ export const checkCustomSkill = data => {
     data,
   });
 };
+
+// 清空skillChat对话
+export const clearSkillConversation = data => {
+  return request({
+    url: `${USER_API}/agent/skill/conversation/clear`,
+    method: 'delete',
+    data,
+  });
+};
