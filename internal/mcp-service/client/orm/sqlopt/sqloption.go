@@ -185,3 +185,14 @@ func WithCustomSkillSourceType(sourceType string) SQLOption {
 		return db
 	})
 }
+
+func WithCustomSkillSkillId(skillIds []string) SQLOption {
+	if len(skillIds) > 0 {
+		return funcSQLOption(func(db *gorm.DB) *gorm.DB {
+			return db.Where("id IN ?", skillIds)
+		})
+	}
+	return funcSQLOption(func(db *gorm.DB) *gorm.DB {
+		return db
+	})
+}

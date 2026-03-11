@@ -87,3 +87,14 @@ func (c *Client) GetCustomSkillBySaveIds(ctx context.Context, saveIds []string) 
 
 	return list, nil
 }
+
+func (c *Client) GetCustomSkillBySkillIds(ctx context.Context, skillIds []string) ([]*model.CustomSkill, *err_code.Status) {
+	var list []*model.CustomSkill
+	if err := sqlopt.SQLOptions(
+		sqlopt.WithCustomSkillSkillId(skillIds),
+	).Apply(c.db).WithContext(ctx).Find(&list).Error; err != nil {
+		return nil, toErrStatus("mcp_custom_skill_get_by_skill_ids", err.Error())
+	}
+
+	return list, nil
+}

@@ -170,6 +170,9 @@ enum Code {
   SkillConversationUpdateErr = 160010; // 更新技能错误
   SkillConversationDeleteErr = 160011; // 删除技能错误
   SkillConversationGetErr = 160012; // 获取技能错误
+  AssistantSkillCreateErr = 160013; // 智能体技能创建错误
+  AssistantSkillDeleteErr = 160014; // 智能体技能删除错误
+  AssistantSkillEnableSwitchErr = 160015; // 智能体技能启用/停用错误
 
   // --- workflow-service ---
   // [210000, 219999]

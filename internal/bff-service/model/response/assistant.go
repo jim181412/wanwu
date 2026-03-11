@@ -22,6 +22,7 @@ type Assistant struct {
 	WorkFlowInfos          []*AssistantWorkFlowInfo       `json:"workFlowInfos"`       // 工作流信息
 	MCPInfos               []*AssistantMCPInfo            `json:"mcpInfos"`            // MCP信息
 	ToolInfos              []*AssistantToolInfo           `json:"toolInfos"`           // 自定义工具、内置工具
+	SkillInfos             []*AssistantSkillInfo          `json:"skillInfos"`          // 技能配置
 	MultiAgentInfos        []*AssistantAgentInfo          `json:"multiAgentInfos"`     // 多智能体配置
 	CreatedAt              string                         `json:"createdAt"`           // 创建时间
 	UpdatedAt              string                         `json:"updatedAt"`           // 更新时间
@@ -61,6 +62,16 @@ type AssistantToolInfo struct {
 	Valid      bool                        `json:"valid"`
 	ToolConfig request.AssistantToolConfig `json:"toolConfig"`
 	Avatar     request.Avatar              `json:"avatar"`
+}
+
+type AssistantSkillInfo struct {
+	SkillId   string         `json:"skillId"`
+	SkillType string         `json:"skillType" validate:"required,oneof=builtin custom"`
+	SkillName string         `json:"skillName"`
+	Author    string         `json:"author"`
+	Enable    bool           `json:"enable"`
+	Valid     bool           `json:"valid"`
+	Avatar    request.Avatar `json:"avatar"`
 }
 
 type AssistantAgentInfo struct {

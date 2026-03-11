@@ -52,6 +52,13 @@ type IClient interface {
 	GetAssistantToolList(ctx context.Context, assistantId uint32) ([]*model.AssistantTool, *err_code.Status)
 	DeleteAssistantToolByToolId(ctx context.Context, toolId string, toolType string) *err_code.Status
 
+	//================Assistant Skill================
+	CreateAssistantSkill(ctx context.Context, assistantId uint32, skillId, skillType, userId, orgId string) *err_code.Status
+	DeleteAssistantSkill(ctx context.Context, assistantId uint32, skillId, skillType string) *err_code.Status
+	GetAssistantSkillById(ctx context.Context, assistantId uint32, skillId, skillType string) (*model.AssistantSkill, *err_code.Status)
+	GetAssistantSkillList(ctx context.Context, assistantId uint32) ([]*model.AssistantSkill, *err_code.Status)
+	UpdateAssistantSkillEnable(ctx context.Context, assistantId uint32, skillId, skillType string, enable bool) *err_code.Status
+
 	//================Conversation================
 	CreateConversation(ctx context.Context, conversation *model.Conversation) *err_code.Status
 	UpdateConversation(ctx context.Context, conversation *model.Conversation) *err_code.Status

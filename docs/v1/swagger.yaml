@@ -1226,6 +1226,56 @@ definitions:
     - mcpId
     - mcpType
     type: object
+  request.AssistantSkillAddRequest:
+    properties:
+      assistantId:
+        type: string
+      skillId:
+        type: string
+      skillType:
+        enum:
+        - builtin
+        - custom
+        type: string
+    required:
+    - assistantId
+    - skillId
+    - skillType
+    type: object
+  request.AssistantSkillDelRequest:
+    properties:
+      assistantId:
+        type: string
+      skillId:
+        type: string
+      skillType:
+        enum:
+        - builtin
+        - custom
+        type: string
+    required:
+    - assistantId
+    - skillId
+    - skillType
+    type: object
+  request.AssistantSkillEnableSwitchRequest:
+    properties:
+      assistantId:
+        type: string
+      enable:
+        type: boolean
+      skillId:
+        type: string
+      skillType:
+        enum:
+        - builtin
+        - custom
+        type: string
+    required:
+    - assistantId
+    - skillId
+    - skillType
+    type: object
   request.AssistantTemplateRequest:
     properties:
       assistantTemplateId:
@@ -4222,6 +4272,11 @@ definitions:
       scope:
         description: 作用域
         type: integer
+      skillInfos:
+        description: 技能配置
+        items:
+          $ref: '#/definitions/response.AssistantSkillInfo'
+        type: array
       toolInfos:
         description: 自定义工具、内置工具
         items:
@@ -4312,6 +4367,28 @@ definitions:
         type: string
       size:
         type: integer
+    type: object
+  response.AssistantSkillInfo:
+    properties:
+      author:
+        type: string
+      avatar:
+        $ref: '#/definitions/request.Avatar'
+      enable:
+        type: boolean
+      skillId:
+        type: string
+      skillName:
+        type: string
+      skillType:
+        enum:
+        - builtin
+        - custom
+        type: string
+      valid:
+        type: boolean
+    required:
+    - skillType
     type: object
   response.AssistantTemplateInfo:
     properties:
@@ -6894,6 +6971,28 @@ definitions:
         description: 模板markdown预览
         type: string
     type: object
+  response.SkillInfo:
+    properties:
+      author:
+        description: 作者
+        type: string
+      avatar:
+        allOf:
+        - $ref: '#/definitions/request.Avatar'
+        description: 图标
+      desc:
+        description: 描述
+        type: string
+      skillId:
+        description: skillId
+        type: string
+      skillName:
+        description: 名称
+        type: string
+      skillType:
+        description: 类型
+        type: string
+    type: object
   response.StatisticChart:
     properties:
       lines:
@@ -7797,6 +7896,40 @@ paths:
       security:
       - JWT: []
       summary: 获取skill模板列表
+      tags:
+      - resource.skill
+  /agent/skill/select:
+    get:
+      consumes:
+      - application/json
+      description: 获取skill选择列表
+      parameters:
+      - description: skill名称
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.ListResult'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/response.SkillInfo'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - JWT: []
+      summary: 获取skill选择列表
       tags:
       - resource.skill
   /api/key:
@@ -9524,6 +9657,77 @@ paths:
       security:
       - JWT: []
       summary: 添加多智能体配置-下拉列表接口
+      tags:
+      - agent
+  /assistant/skill:
+    delete:
+      consumes:
+      - application/json
+      description: 为智能体解绑技能
+      parameters:
+      - description: 智能体id与技能id
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.AssistantSkillDelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 删除技能
+      tags:
+      - agent
+    post:
+      consumes:
+      - application/json
+      description: 为智能体绑定技能
+      parameters:
+      - description: 技能新增参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.AssistantSkillAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 添加技能
+      tags:
+      - agent
+  /assistant/skill/switch:
+    put:
+      consumes:
+      - application/json
+      description: 修改智能体绑定的技能的启用状态
+      parameters:
+      - description: 智能体id与技能id
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.AssistantSkillEnableSwitchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - JWT: []
+      summary: 启用/停用技能
       tags:
       - agent
   /assistant/stream:
@@ -13386,7 +13590,6 @@ paths:
       description: 获取模型体验对话记录列表
       parameters:
       - description: 模型体验对话ID
-        format: int32
         in: query
         name: modelExperienceId
         required: true

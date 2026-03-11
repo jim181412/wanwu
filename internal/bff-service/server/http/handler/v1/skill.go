@@ -160,3 +160,19 @@ func CheckCustomSkill(ctx *gin.Context) {
 	resp, err := service.CheckCustomSkill(ctx, getUserID(ctx), getOrgID(ctx), req.ZipUrl)
 	gin_util.Response(ctx, resp, err)
 }
+
+// GetSkillSelect
+//
+//	@Tags			resource.skill
+//	@Summary		获取skill选择列表
+//	@Description	获取skill选择列表
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			name	query		string	false	"skill名称"
+//	@Success		200		{object}	response.Response{data=response.ListResult{list=[]response.SkillInfo}}
+//	@Router			/agent/skill/select [get]
+func GetSkillSelect(ctx *gin.Context) {
+	resp, err := service.GetSkillSelect(ctx, getUserID(ctx), getOrgID(ctx), ctx.Query("name"))
+	gin_util.Response(ctx, resp, err)
+}

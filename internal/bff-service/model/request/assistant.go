@@ -104,6 +104,31 @@ type AssistantMCPToolEnableRequest struct {
 
 func (a *AssistantMCPToolEnableRequest) Check() error { return nil }
 
+type AssistantSkillAddRequest struct {
+	AssistantId string `json:"assistantId" validate:"required"`
+	SkillId     string `json:"skillId" validate:"required"`
+	SkillType   string `json:"skillType" validate:"required,oneof=builtin custom"`
+}
+
+func (a *AssistantSkillAddRequest) Check() error { return nil }
+
+type AssistantSkillDelRequest struct {
+	AssistantId string `json:"assistantId" validate:"required"`
+	SkillId     string `json:"skillId" validate:"required"`
+	SkillType   string `json:"skillType" validate:"required,oneof=builtin custom"`
+}
+
+func (a *AssistantSkillDelRequest) Check() error { return nil }
+
+type AssistantSkillEnableSwitchRequest struct {
+	AssistantId string `json:"assistantId" validate:"required"`
+	SkillId     string `json:"skillId" validate:"required"`
+	SkillType   string `json:"skillType" validate:"required,oneof=builtin custom"`
+	Enable      bool   `json:"enable"`
+}
+
+func (a *AssistantSkillEnableSwitchRequest) Check() error { return nil }
+
 type ConversationCreateRequest struct {
 	AssistantId string `json:"assistantId"  validate:"required"`
 	Prompt      string `json:"prompt"  validate:"required"`

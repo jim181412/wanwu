@@ -1131,6 +1131,13 @@
                     "description": "作用域",
                     "type": "integer"
                 },
+                "skillInfos": {
+                    "description": "技能配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.AssistantSkillInfo"
+                    }
+                },
                 "toolInfos": {
                     "description": "自定义工具、内置工具",
                     "type": "array",
@@ -1229,6 +1236,39 @@
                 },
                 "size": {
                     "type": "integer"
+                }
+            }
+        },
+        "response.AssistantSkillInfo": {
+            "type": "object",
+            "required": [
+                "skillType"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "avatar": {
+                    "$ref": "#/definitions/request.Avatar"
+                },
+                "enable": {
+                    "type": "boolean"
+                },
+                "skillId": {
+                    "type": "string"
+                },
+                "skillName": {
+                    "type": "string"
+                },
+                "skillType": {
+                    "type": "string",
+                    "enum": [
+                        "builtin",
+                        "custom"
+                    ]
+                },
+                "valid": {
+                    "type": "boolean"
                 }
             }
         },

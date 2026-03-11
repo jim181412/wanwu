@@ -341,6 +341,19 @@ func (s *Service) GetAssistantInfo(ctx context.Context, req *assistant_service.G
 		})
 	}
 
+	// 获取关联的 Skill
+	skills, _ := s.cli.GetAssistantSkillList(ctx, assistantId)
+	// 转换 Skill
+	var skillInfos []*assistant_service.AssistantSkillInfo
+	for _, skill := range skills {
+		skillInfos = append(skillInfos, &assistant_service.AssistantSkillInfo{
+			Id:        util.Int2Str(skill.ID),
+			SkillId:   skill.SkillId,
+			SkillType: skill.SkillType,
+			Enable:    skill.Enable,
+		})
+	}
+
 	// 处理assistant.ModelConfig，转换成common.AppModelConfig
 	var modelConfig *common.AppModelConfig
 	if assistant.ModelConfig != "" {
@@ -462,6 +475,7 @@ func (s *Service) GetAssistantInfo(ctx context.Context, req *assistant_service.G
 		WorkFlowInfos:       workFlowInfos,
 		McpInfos:            mcpInfos,
 		ToolInfos:           toolInfos,
+		SkillInfos:          skillInfos,
 		MultiAgentInfos:     multiAgentInfos,
 		Category:            int32(assistant.Category),
 		CreatTime:           assistant.CreatedAt,

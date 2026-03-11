@@ -345,6 +345,69 @@ func AssistantToolConfig(ctx *gin.Context) {
 	gin_util.Response(ctx, nil, err)
 }
 
+// AssistantSkillCreate
+//
+//	@Tags			agent
+//	@Summary		添加技能
+//	@Description	为智能体绑定技能
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			data	body		request.AssistantSkillAddRequest	true	"技能新增参数"
+//	@Success		200		{object}	response.Response
+//	@Router			/assistant/skill [post]
+func AssistantSkillCreate(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.AssistantSkillAddRequest
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	err := service.AssistantSkillCreate(ctx, userId, orgId, req)
+	gin_util.Response(ctx, nil, err)
+}
+
+// AssistantSkillDelete
+//
+//	@Tags			agent
+//	@Summary		删除技能
+//	@Description	为智能体解绑技能
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			data	body		request.AssistantSkillDelRequest	true	"智能体id与技能id"
+//	@Success		200		{object}	response.Response
+//	@Router			/assistant/skill [delete]
+func AssistantSkillDelete(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.AssistantSkillDelRequest
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	err := service.AssistantSkillDelete(ctx, userId, orgId, req)
+	gin_util.Response(ctx, nil, err)
+}
+
+// AssistantSkillEnableSwitch
+//
+//	@Tags			agent
+//	@Summary		启用/停用技能
+//	@Description	修改智能体绑定的技能的启用状态
+//	@Security		JWT
+//	@Accept			json
+//	@Produce		json
+//	@Param			data	body		request.AssistantSkillEnableSwitchRequest	true	"智能体id与技能id"
+//	@Success		200		{object}	response.Response
+//	@Router			/assistant/skill/switch [put]
+func AssistantSkillEnableSwitch(ctx *gin.Context) {
+	userId, orgId := getUserID(ctx), getOrgID(ctx)
+	var req request.AssistantSkillEnableSwitchRequest
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	err := service.AssistantSkillEnableSwitch(ctx, userId, orgId, req)
+	gin_util.Response(ctx, nil, err)
+}
+
 // ConversationCreate
 //
 //	@Tags			agent

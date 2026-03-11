@@ -3,8 +3,6 @@ package assistant
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"strconv"
 	"strings"
 
 	assistant_service "github.com/UnicomAI/wanwu/api/proto/assistant-service"
@@ -46,6 +44,12 @@ func (s *Service) AssistantSnapshotCreate(ctx context.Context, req *assistant_se
 		return nil, errStatus(errs.Code_AssistantErr, status)
 	}
 
+	// 获取Skill配置详情
+	skillInfos, status := s.cli.GetAssistantSkillList(ctx, assistantId)
+	if status != nil {
+		return nil, errStatus(errs.Code_AssistantErr, status)
+	}
+
 	// 构造快照
 	assistantSnapshot := model.AssistantSnapshot{
 		// 基本信息
@@ -59,6 +63,7 @@ func (s *Service) AssistantSnapshotCreate(ctx context.Context, req *assistant_se
 		AssistantToolConfig:     structToJson(toolInfos),
 		AssistantMCPConfig:      structToJson(mcpInfos),
 		AssistantWorkflowConfig: structToJson(workflows),
+		AssistantSkillConfig:    structToJson(skillInfos),
 		// 身份信息
 		UserId: req.Identity.UserId,
 		OrgId:  req.Identity.OrgId,
@@ -171,7 +176,7 @@ func (s *Service) AssistantSnapshotInfo(ctx context.Context, req *assistant_serv
 	var workFlowInfos []*assistant_service.AssistantWorkFlowInfos
 	for _, workflow := range workFlowConfig {
 		workFlowInfos = append(workFlowInfos, &assistant_service.AssistantWorkFlowInfos{
-			Id:         strconv.FormatUint(uint64(workflow.ID), 10),
+			Id:         util.Int2Str(workflow.ID),
 			WorkFlowId: workflow.WorkflowId,
 			Enable:     workflow.Enable,
 		})
@@ -186,7 +191,7 @@ func (s *Service) AssistantSnapshotInfo(ctx context.Context, req *assistant_serv
 	var mcpInfos []*assistant_service.AssistantMCPInfos
 	for _, mcp := range mcpInfoConfig {
 		mcpInfos = append(mcpInfos, &assistant_service.AssistantMCPInfos{
-			Id:         strconv.FormatUint(uint64(mcp.ID), 10),
+			Id:         util.Int2Str(mcp.ID),
 			McpId:      mcp.MCPId,
 			McpType:    mcp.MCPType,
 			ActionName: mcp.ActionName,
@@ -203,12 +208,28 @@ func (s *Service) AssistantSnapshotInfo(ctx context.Context, req *assistant_serv
 	var toolInfos []*assistant_service.AssistantToolInfos
 	for _, tool := range toolInfoConfig {
 		toolInfos = append(toolInfos, &assistant_service.AssistantToolInfos{
-			Id:         strconv.FormatUint(uint64(tool.ID), 10),
+			Id:         util.Int2Str(tool.ID),
 			ToolId:     tool.ToolId,
 			ToolType:   tool.ToolType,
 			ActionName: tool.ActionName,
 			Enable:     tool.Enable,
 			ToolConfig: tool.ToolConfig,
+		})
+	}
+
+	// 解析Skill配置详情
+	var skillInfoConfig []*model.AssistantSkill
+	if err := jsonToStruct(snapshotInfo.AssistantSkillConfig, &skillInfoConfig); err != nil {
+		return nil, errStatus(errs.Code_AssistantErr, toErrStatus("assistant_snapshot", err.Error()))
+	}
+	// 转换Skill
+	var skillInfos []*assistant_service.AssistantSkillInfo
+	for _, skill := range skillInfoConfig {
+		skillInfos = append(skillInfos, &assistant_service.AssistantSkillInfo{
+			Id:        util.Int2Str(skill.ID),
+			SkillId:   skill.SkillId,
+			SkillType: skill.SkillType,
+			Enable:    skill.Enable,
 		})
 	}
 
@@ -332,6 +353,7 @@ func (s *Service) AssistantSnapshotInfo(ctx context.Context, req *assistant_serv
 		WorkFlowInfos:       workFlowInfos,
 		McpInfos:            mcpInfos,
 		ToolInfos:           toolInfos,
+		SkillInfos:          skillInfos,
 		MultiAgentInfos:     multiAgentInfos,
 		CreatTime:           snapshotAssistant.CreatedAt,
 		UpdateTime:          snapshotAssistant.UpdatedAt,
@@ -380,6 +402,12 @@ func (s *Service) AssistantSnapshotRollback(ctx context.Context, req *assistant_
 		return nil, errStatus(errs.Code_AssistantErr, toErrStatus("assistant_snapshot", err.Error()))
 	}
 
+	// --- AssistantSkillConfig ---
+	var assistantSkillConfig []*model.AssistantSkill
+	if err := jsonToStruct(assistantSnapshot.AssistantSkillConfig, &assistantSkillConfig); err != nil {
+		return nil, errStatus(errs.Code_AssistantErr, toErrStatus("assistant_snapshot", err.Error()))
+	}
+
 	// --- AssistantMultiAgentConfig ---
 	subAgents, err := s.cli.FetchMultiAssistantRelationList(ctx, assistantId, version, false)
 	if err != nil {
@@ -400,7 +428,7 @@ func (s *Service) AssistantSnapshotRollback(ctx context.Context, req *assistant_
 // json 字符串转结构体
 func jsonToStruct(jsonStr string, v interface{}) error {
 	if jsonStr == "" {
-		return errors.New("json string is empty")
+		return nil
 	}
 	if err := json.Unmarshal([]byte(jsonStr), v); err != nil {
 		log.Errorf("json unmarshal failed: %v", err)

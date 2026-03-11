@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	errs "github.com/UnicomAI/wanwu/api/proto/err-code"
 	mcp_service "github.com/UnicomAI/wanwu/api/proto/mcp-service"
 	"github.com/UnicomAI/wanwu/internal/bff-service/config"
+	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/response"
 	minio_util "github.com/UnicomAI/wanwu/internal/bff-service/pkg/minio-util"
+	"github.com/UnicomAI/wanwu/pkg/constant"
 	grpc_util "github.com/UnicomAI/wanwu/pkg/grpc-util"
 	"github.com/UnicomAI/wanwu/pkg/minio"
 	"github.com/UnicomAI/wanwu/pkg/util"
@@ -148,5 +151,53 @@ func CheckCustomSkill(ctx *gin.Context, userId, orgId, zipUrl string) (*response
 	return &response.CustomSkillCheckResp{
 		Name: fm.Name,
 		Desc: fm.Description,
+	}, nil
+}
+
+func GetSkillSelect(ctx *gin.Context, userId, orgId, name string) (*response.ListResult, error) {
+	var allSkills []*response.SkillInfo
+
+	// 内建 skills
+	for _, skillsCfg := range config.Cfg().AgentSkills {
+		if name != "" && !strings.Contains(skillsCfg.Name, name) {
+			continue
+		}
+		iconUrl := config.Cfg().DefaultIcon.SkillIcon
+		if skillsCfg.Avatar != "" {
+			iconUrl = skillsCfg.Avatar
+		}
+		allSkills = append(allSkills, &response.SkillInfo{
+			SkillId:   skillsCfg.SkillId,
+			SkillName: skillsCfg.Name,
+			SkillType: constant.SkillTypeBuiltIn,
+			Desc:      skillsCfg.Desc,
+			Author:    skillsCfg.Author,
+			Avatar:    request.Avatar{Path: iconUrl},
+		})
+	}
+
+	// 自定义 skills
+	customResp, err := mcp.CustomSkillGetList(ctx.Request.Context(), &mcp_service.CustomSkillGetListReq{
+		Name:     name,
+		Identity: &mcp_service.Identity{UserId: userId, OrgId: orgId},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, skill := range customResp.List {
+		allSkills = append(allSkills, &response.SkillInfo{
+			SkillId:   skill.SkillId,
+			SkillName: skill.Name,
+			SkillType: constant.SkillTypeCustom,
+			Desc:      skill.Desc,
+			Author:    skill.Author,
+			Avatar:    cacheSkillAvatar(ctx, skill.Avatar),
+		})
+	}
+
+	return &response.ListResult{
+		List:  allSkills,
+		Total: int64(len(allSkills)),
 	}, nil
 }

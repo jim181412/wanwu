@@ -54,6 +54,11 @@ service AssistantService {
   rpc AssistantToolConfig(AssistantToolConfigReq) returns (google.protobuf.Empty) {}
   rpc AssistantToolDeleteByToolId(AssistantToolDeleteByToolIdReq) returns (google.protobuf.Empty) {}
 
+  // --- skill ---
+  rpc AssistantSkillCreate(AssistantSkillCreateReq) returns (google.protobuf.Empty) {}
+  rpc AssistantSkillDelete(AssistantSkillDeleteReq) returns (google.protobuf.Empty) {}
+  rpc AssistantSkillEnableSwitch(AssistantSkillEnableSwitchReq) returns (google.protobuf.Empty) {}
+
   // --- conversation ---
   rpc ConversationCreate(ConversationCreateReq) returns (ConversationCreateResp) {}
   rpc ConversationDelete(ConversationDeleteReq) returns (google.protobuf.Empty) {}
@@ -314,7 +319,8 @@ message AssistantInfo {
   int32 scope = 11;
   repeated AssistantWorkFlowInfos workFlowInfos = 12;
   repeated AssistantMCPInfos mcpInfos = 13;
-  repeated AssistantToolInfos toolInfos = 15;
+  repeated AssistantToolInfos toolInfos = 14;
+  repeated AssistantSkillInfo skillInfos = 15;
   int64 creatTime = 16;
   int64 updateTime = 17;
   AssistantSafetyConfig safetyConfig = 18;
@@ -364,6 +370,13 @@ message AssistantToolInfos{
   string actionName = 4;
   bool enable = 5;
   string toolConfig = 6;
+}
+
+message AssistantSkillInfo {
+  string id = 1;
+  string skillId = 2;
+  string skillType = 3;
+  bool enable = 4;
 }
 
 message GetAssistantInfoReq {
@@ -451,6 +464,28 @@ message AssistantToolDeleteByToolIdReq {
   string toolId = 1;
   string toolType = 2;
   Identity identity = 3;
+}
+
+message AssistantSkillCreateReq {
+  string assistantId = 1;
+  string skillId = 2;
+  string skillType = 3;
+  Identity identity = 4;
+}
+
+message AssistantSkillDeleteReq {
+  string assistantId = 1;
+  string skillId = 2;
+  string skillType = 3;
+  Identity identity = 4;
+}
+
+message AssistantSkillEnableSwitchReq {
+  string assistantId = 1;
+  string skillId = 2;
+  string skillType = 3;
+  bool enable = 4;
+  Identity identity = 5;
 }
 
 message AssistantToolCreateReq {
@@ -695,6 +730,7 @@ message AgentDetail {
   ModelParams modelParams = 5; //模型参数
   string knowledgeParams = 6; //知识参数,使用方需要自己反序列化
   ToolParams toolParams = 7;//工具参数
+  SkillParams skillParams = 8;//技能参数
 }
 
 // 基础参数
@@ -741,6 +777,17 @@ message MCPToolInfo {
   // MCP工具方法列表，会根据此方法名的列表进行mcp方法的过滤
   // 如果此列为空，则表示不进行过滤
   repeated string toolNameList = 3;
+}
+
+message SkillParams {
+  repeated SkillInfo skillList = 1;
+}
+
+message SkillInfo {
+  string skillId = 1;
+  string skillType = 2;
+  string skillDetail = 3;
+  string objectPath = 4;
 }
 
 

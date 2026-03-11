@@ -312,6 +312,46 @@ func AssistantToolConfig(ctx *gin.Context, userId, orgId string, req request.Ass
 	return err
 }
 
+func AssistantSkillCreate(ctx *gin.Context, userId, orgId string, req request.AssistantSkillAddRequest) error {
+	_, err := assistant.AssistantSkillCreate(ctx.Request.Context(), &assistant_service.AssistantSkillCreateReq{
+		AssistantId: req.AssistantId,
+		SkillId:     req.SkillId,
+		SkillType:   req.SkillType,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+	return err
+}
+
+func AssistantSkillDelete(ctx *gin.Context, userId, orgId string, req request.AssistantSkillDelRequest) error {
+	_, err := assistant.AssistantSkillDelete(ctx.Request.Context(), &assistant_service.AssistantSkillDeleteReq{
+		AssistantId: req.AssistantId,
+		SkillId:     req.SkillId,
+		SkillType:   req.SkillType,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+	return err
+}
+
+func AssistantSkillEnableSwitch(ctx *gin.Context, userId, orgId string, req request.AssistantSkillEnableSwitchRequest) error {
+	_, err := assistant.AssistantSkillEnableSwitch(ctx.Request.Context(), &assistant_service.AssistantSkillEnableSwitchReq{
+		AssistantId: req.AssistantId,
+		SkillId:     req.SkillId,
+		SkillType:   req.SkillType,
+		Enable:      req.Enable,
+		Identity: &assistant_service.Identity{
+			UserId: userId,
+			OrgId:  orgId,
+		},
+	})
+	return err
+}
+
 func MultiAgentCreate(ctx *gin.Context, userId, orgId string, req request.MultiAgentCreateReq) error {
 	_, err := assistant.MultiAgentCreate(ctx.Request.Context(), &assistant_service.MultiAgentCreateReq{
 		AssistantId: req.AssistantId,
@@ -626,6 +666,68 @@ func assistantToolsConvert(ctx *gin.Context, assistantToolInfos []*assistant_ser
 	}
 	return retToolInfos, nil
 
+}
+
+func assistantSkillConvert(ctx *gin.Context, assistantSkillInfos []*assistant_service.AssistantSkillInfo) ([]*response.AssistantSkillInfo, error) {
+	if len(assistantSkillInfos) == 0 {
+		return nil, nil
+	}
+
+	var customSkillIds []string
+	for _, skill := range assistantSkillInfos {
+		if skill.SkillType == constant.SkillTypeCustom {
+			customSkillIds = append(customSkillIds, skill.SkillId)
+		}
+	}
+
+	// 获取自定义技能
+	customSkillResp, err := mcp.GetCustomSkillDetailByIdList(ctx.Request.Context(), &mcp_service.CustomSkillDetailByIdListReq{
+		SkillIds: customSkillIds,
+	})
+	customSkillMap := make(map[string]*mcp_service.CustomSkill)
+	if err == nil && customSkillResp != nil {
+		for _, item := range customSkillResp.SkillDetails {
+			customSkillMap[item.SkillId] = item
+		}
+	}
+
+	var retSkillInfos []*response.AssistantSkillInfo
+	for _, info := range assistantSkillInfos {
+		var exists bool
+		var skillName, author string
+		var avatar request.Avatar
+
+		switch info.SkillType {
+		case constant.SkillTypeCustom:
+			if item, ok := customSkillMap[info.SkillId]; ok {
+				exists = true
+				skillName = item.Name
+				author = item.Author
+				avatar = cacheSkillAvatar(ctx, item.Avatar)
+			}
+		case constant.SkillTypeBuiltIn:
+			skillDetail, err := GetAgentSkillDetail(ctx, info.SkillId)
+			if err == nil && skillDetail != nil {
+				exists = true
+				skillName = skillDetail.Name
+				author = skillDetail.Author
+				avatar = skillDetail.Avatar
+			}
+		}
+
+		if exists {
+			retSkillInfos = append(retSkillInfos, &response.AssistantSkillInfo{
+				SkillId:   info.SkillId,
+				SkillType: info.SkillType,
+				SkillName: skillName,
+				Author:    author,
+				Enable:    info.Enable,
+				Valid:     true,
+				Avatar:    avatar,
+			})
+		}
+	}
+	return retSkillInfos, nil
 }
 
 func assistantSafetyConvert(ctx *gin.Context, resp *assistant_service.AssistantSafetyConfig) (request.AppSafetyConfig, error) {
@@ -975,6 +1077,12 @@ func transAssistantResp2Model(ctx *gin.Context, resp *assistant_service.Assistan
 		return nil, err
 	}
 
+	// 转换Skill配置
+	assistantSkillInfos, err := assistantSkillConvert(ctx, resp.SkillInfos)
+	if err != nil {
+		return nil, err
+	}
+
 	// 转换Safety配置
 	safetyConfig, err := assistantSafetyConvert(ctx, resp.SafetyConfig)
 	if err != nil {
@@ -1037,6 +1145,7 @@ func transAssistantResp2Model(ctx *gin.Context, resp *assistant_service.Assistan
 		WorkFlowInfos:       assistantWorkFlowInfos,
 		MCPInfos:            assistantMCPInfos,
 		ToolInfos:           assistantToolInfos,
+		SkillInfos:          assistantSkillInfos,
 		MultiAgentInfos:     assistantMultiAgents,
 		CreatedAt:           util.Time2Str(resp.CreatTime),
 		UpdatedAt:           util.Time2Str(resp.UpdateTime),

@@ -34,6 +34,10 @@ func registerAssistant(apiV1 *gin.RouterGroup) {
 	mid.Sub("app.agent").Reg(apiV1, "/assistant/tool/switch", http.MethodPut, v1.AssistantToolEnableSwitch, "智能体启用/停用自定义内置工具")
 	mid.Sub("app.agent").Reg(apiV1, "/assistant/tool/config", http.MethodPut, v1.AssistantToolConfig, "配置智能体工具，包括自定义工具和内置工具")
 
+	mid.Sub("app.agent").Reg(apiV1, "/assistant/skill", http.MethodPost, v1.AssistantSkillCreate, "添加skills，包括自定义跟内置")
+	mid.Sub("app.agent").Reg(apiV1, "/assistant/skill", http.MethodDelete, v1.AssistantSkillDelete, "删除skills，包括自定义跟内置")
+	mid.Sub("app.agent").Reg(apiV1, "/assistant/skill/switch", http.MethodPut, v1.AssistantSkillEnableSwitch, "启动/停用skills")
+
 	mid.Sub("app.agent").Reg(apiV1, "/assistant/multi-agent", http.MethodPost, v1.MultiAgentCreate, "添加多智能体配置-子智能体")
 	mid.Sub("app.agent").Reg(apiV1, "/assistant/multi-agent", http.MethodDelete, v1.MultiAgentDelete, "删除多智能体配置-子智能体")
 	mid.Sub("app.agent").Reg(apiV1, "/assistant/multi-agent/config", http.MethodPut, v1.MultiAgentConfigUpdate, "编辑多智能体配置中子智能体描述")

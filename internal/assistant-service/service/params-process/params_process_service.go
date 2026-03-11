@@ -19,6 +19,7 @@ const (
 	WorkflowType          ServiceType = "WorkflowService"          //工作流服务
 	McpType               ServiceType = "McpService"               //mcp服务
 	ConversionHistoryType ServiceType = "ConversionHistoryService" //会话历史
+	SkillType             ServiceType = "SkillService"             //技能服务
 )
 
 var serviceList []ProcessService
@@ -85,6 +86,7 @@ type AgentPrepareParams struct {
 	McpServerList        []*mcp_service.MCPServerInfo
 	McpToolMap           map[string][]string
 	ConversionDetailList []*model.ConversationDetails
+	SkillList            []*assistant_service.SkillInfo
 	Err                  error
 }
 

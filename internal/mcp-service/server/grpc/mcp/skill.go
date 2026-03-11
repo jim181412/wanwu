@@ -81,6 +81,22 @@ func (s *Service) CustomSkillGetBySaveIds(ctx context.Context, req *mcp_service.
 	}, nil
 }
 
+func (s *Service) GetCustomSkillDetailByIdList(ctx context.Context, req *mcp_service.CustomSkillDetailByIdListReq) (*mcp_service.CustomSkillDetailByIdListResp, error) {
+	customSkills, err := s.cli.GetCustomSkillBySkillIds(ctx, req.SkillIds)
+	if err != nil {
+		return nil, errStatus(errs.Code_MCPCustomSkillErr, err)
+	}
+
+	skillDetails := make([]*mcp_service.CustomSkill, 0, len(customSkills))
+	for _, customSkill := range customSkills {
+		skillDetails = append(skillDetails, toCustomSkillInfo(customSkill))
+	}
+
+	return &mcp_service.CustomSkillDetailByIdListResp{
+		SkillDetails: skillDetails,
+	}, nil
+}
+
 func toCustomSkillInfo(customSkill *model.CustomSkill) *mcp_service.CustomSkill {
 	if customSkill == nil {
 		return nil

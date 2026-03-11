@@ -54,6 +54,9 @@ const (
 	AssistantService_AssistantToolEnableSwitch_FullMethodName           = "/assistant_service.AssistantService/AssistantToolEnableSwitch"
 	AssistantService_AssistantToolConfig_FullMethodName                 = "/assistant_service.AssistantService/AssistantToolConfig"
 	AssistantService_AssistantToolDeleteByToolId_FullMethodName         = "/assistant_service.AssistantService/AssistantToolDeleteByToolId"
+	AssistantService_AssistantSkillCreate_FullMethodName                = "/assistant_service.AssistantService/AssistantSkillCreate"
+	AssistantService_AssistantSkillDelete_FullMethodName                = "/assistant_service.AssistantService/AssistantSkillDelete"
+	AssistantService_AssistantSkillEnableSwitch_FullMethodName          = "/assistant_service.AssistantService/AssistantSkillEnableSwitch"
 	AssistantService_ConversationCreate_FullMethodName                  = "/assistant_service.AssistantService/ConversationCreate"
 	AssistantService_ConversationDelete_FullMethodName                  = "/assistant_service.AssistantService/ConversationDelete"
 	AssistantService_GetConversationIdByAssistantId_FullMethodName      = "/assistant_service.AssistantService/GetConversationIdByAssistantId"
@@ -120,6 +123,10 @@ type AssistantServiceClient interface {
 	AssistantToolEnableSwitch(ctx context.Context, in *AssistantToolEnableSwitchReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AssistantToolConfig(ctx context.Context, in *AssistantToolConfigReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AssistantToolDeleteByToolId(ctx context.Context, in *AssistantToolDeleteByToolIdReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// --- skill ---
+	AssistantSkillCreate(ctx context.Context, in *AssistantSkillCreateReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AssistantSkillDelete(ctx context.Context, in *AssistantSkillDeleteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AssistantSkillEnableSwitch(ctx context.Context, in *AssistantSkillEnableSwitchReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// --- conversation ---
 	ConversationCreate(ctx context.Context, in *ConversationCreateReq, opts ...grpc.CallOption) (*ConversationCreateResp, error)
 	ConversationDelete(ctx context.Context, in *ConversationDeleteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -494,6 +501,36 @@ func (c *assistantServiceClient) AssistantToolDeleteByToolId(ctx context.Context
 	return out, nil
 }
 
+func (c *assistantServiceClient) AssistantSkillCreate(ctx context.Context, in *AssistantSkillCreateReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AssistantService_AssistantSkillCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) AssistantSkillDelete(ctx context.Context, in *AssistantSkillDeleteReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AssistantService_AssistantSkillDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) AssistantSkillEnableSwitch(ctx context.Context, in *AssistantSkillEnableSwitchReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AssistantService_AssistantSkillEnableSwitch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *assistantServiceClient) ConversationCreate(ctx context.Context, in *ConversationCreateReq, opts ...grpc.CallOption) (*ConversationCreateResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConversationCreateResp)
@@ -756,6 +793,10 @@ type AssistantServiceServer interface {
 	AssistantToolEnableSwitch(context.Context, *AssistantToolEnableSwitchReq) (*emptypb.Empty, error)
 	AssistantToolConfig(context.Context, *AssistantToolConfigReq) (*emptypb.Empty, error)
 	AssistantToolDeleteByToolId(context.Context, *AssistantToolDeleteByToolIdReq) (*emptypb.Empty, error)
+	// --- skill ---
+	AssistantSkillCreate(context.Context, *AssistantSkillCreateReq) (*emptypb.Empty, error)
+	AssistantSkillDelete(context.Context, *AssistantSkillDeleteReq) (*emptypb.Empty, error)
+	AssistantSkillEnableSwitch(context.Context, *AssistantSkillEnableSwitchReq) (*emptypb.Empty, error)
 	// --- conversation ---
 	ConversationCreate(context.Context, *ConversationCreateReq) (*ConversationCreateResp, error)
 	ConversationDelete(context.Context, *ConversationDeleteReq) (*emptypb.Empty, error)
@@ -891,6 +932,15 @@ func (UnimplementedAssistantServiceServer) AssistantToolConfig(context.Context, 
 }
 func (UnimplementedAssistantServiceServer) AssistantToolDeleteByToolId(context.Context, *AssistantToolDeleteByToolIdReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AssistantToolDeleteByToolId not implemented")
+}
+func (UnimplementedAssistantServiceServer) AssistantSkillCreate(context.Context, *AssistantSkillCreateReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssistantSkillCreate not implemented")
+}
+func (UnimplementedAssistantServiceServer) AssistantSkillDelete(context.Context, *AssistantSkillDeleteReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssistantSkillDelete not implemented")
+}
+func (UnimplementedAssistantServiceServer) AssistantSkillEnableSwitch(context.Context, *AssistantSkillEnableSwitchReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssistantSkillEnableSwitch not implemented")
 }
 func (UnimplementedAssistantServiceServer) ConversationCreate(context.Context, *ConversationCreateReq) (*ConversationCreateResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConversationCreate not implemented")
@@ -1585,6 +1635,60 @@ func _AssistantService_AssistantToolDeleteByToolId_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AssistantService_AssistantSkillCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssistantSkillCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).AssistantSkillCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_AssistantSkillCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).AssistantSkillCreate(ctx, req.(*AssistantSkillCreateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_AssistantSkillDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssistantSkillDeleteReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).AssistantSkillDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_AssistantSkillDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).AssistantSkillDelete(ctx, req.(*AssistantSkillDeleteReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_AssistantSkillEnableSwitch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssistantSkillEnableSwitchReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).AssistantSkillEnableSwitch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_AssistantSkillEnableSwitch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).AssistantSkillEnableSwitch(ctx, req.(*AssistantSkillEnableSwitchReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AssistantService_ConversationCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConversationCreateReq)
 	if err := dec(in); err != nil {
@@ -2073,6 +2177,18 @@ var AssistantService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AssistantToolDeleteByToolId",
 			Handler:    _AssistantService_AssistantToolDeleteByToolId_Handler,
+		},
+		{
+			MethodName: "AssistantSkillCreate",
+			Handler:    _AssistantService_AssistantSkillCreate_Handler,
+		},
+		{
+			MethodName: "AssistantSkillDelete",
+			Handler:    _AssistantService_AssistantSkillDelete_Handler,
+		},
+		{
+			MethodName: "AssistantSkillEnableSwitch",
+			Handler:    _AssistantService_AssistantSkillEnableSwitch_Handler,
 		},
 		{
 			MethodName: "ConversationCreate",

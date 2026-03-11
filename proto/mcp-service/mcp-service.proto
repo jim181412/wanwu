@@ -62,6 +62,7 @@ service MCPService {
   rpc CustomSkillGet(CustomSkillGetReq) returns (CustomSkill) {}
   rpc CustomSkillGetList(CustomSkillGetListReq) returns (CustomSkillGetListResp) {}
   rpc CustomSkillGetBySaveIds(CustomSkillGetBySaveIdsReq) returns (CustomSkillSaveIdsResp) {}
+  rpc GetCustomSkillDetailByIdList(CustomSkillDetailByIdListReq) returns (CustomSkillDetailByIdListResp) {}
 }
 
 // --- req ---
@@ -489,4 +490,12 @@ message CustomSkillGetBySaveIdsReq {
 
 message CustomSkillSaveIdsResp {
   repeated string saveIds = 1;
+}
+
+message CustomSkillDetailByIdListReq {
+  repeated string skillIds = 1;
+}
+
+message CustomSkillDetailByIdListResp {
+  repeated CustomSkill skillDetails = 1;
 }

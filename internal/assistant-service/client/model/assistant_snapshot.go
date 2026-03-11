@@ -10,6 +10,7 @@ type AssistantSnapshot struct {
 	AssistantToolConfig     string `gorm:"column:assistant_tool_config;type:longtext;comment:智能体工具配置"`
 	AssistantMCPConfig      string `gorm:"column:assistant_mcp_config;type:longtext;comment:智能体MCP配置"`
 	AssistantWorkflowConfig string `gorm:"column:assistant_workflow_config;type:longtext;comment:智能体工作流配置"`
+	AssistantSkillConfig    string `gorm:"column:assistant_skill_config;type:longtext;comment:智能体技能配置"`
 	UserId                  string `gorm:"column:user_id;index:idx_assistant_user_id;comment:用户id"`
 	OrgId                   string `gorm:"column:org_id;index:idx_assistant_org_id;comment:组织id"`
 	CreatedAt               int64  `gorm:"autoCreateTime:milli;comment:创建时间"`

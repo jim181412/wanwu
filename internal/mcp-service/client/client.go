@@ -48,4 +48,5 @@ type IClient interface {
 	GetCustomSkill(ctx context.Context, skillId string) (*model.CustomSkill, *errs.Status)
 	GetCustomSkillList(ctx context.Context, userId, orgId, name string) ([]*model.CustomSkill, int64, *errs.Status)
 	GetCustomSkillBySaveIds(ctx context.Context, saveIds []string) ([]*model.CustomSkill, *errs.Status)
+	GetCustomSkillBySkillIds(ctx context.Context, skillIds []string) ([]*model.CustomSkill, *errs.Status)
 }

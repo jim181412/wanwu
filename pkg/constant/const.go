@@ -57,3 +57,9 @@ const (
 	ConversationTypeDraft     = "draft"     // 草稿
 	ConversationTypeOpenAPI   = "openapi"   // openapi
 )
+
+// skill type
+const (
+	SkillTypeBuiltIn = "builtin" // 内置技能
+	SkillTypeCustom  = "custom"  // 自定义技能
+)

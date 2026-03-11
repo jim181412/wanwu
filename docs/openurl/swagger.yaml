@@ -448,6 +448,11 @@ definitions:
       scope:
         description: 作用域
         type: integer
+      skillInfos:
+        description: 技能配置
+        items:
+          $ref: '#/definitions/response.AssistantSkillInfo'
+        type: array
       toolInfos:
         description: 自定义工具、内置工具
         items:
@@ -516,6 +521,28 @@ definitions:
         type: string
       size:
         type: integer
+    type: object
+  response.AssistantSkillInfo:
+    properties:
+      author:
+        type: string
+      avatar:
+        $ref: '#/definitions/request.Avatar'
+      enable:
+        type: boolean
+      skillId:
+        type: string
+      skillName:
+        type: string
+      skillType:
+        enum:
+        - builtin
+        - custom
+        type: string
+      valid:
+        type: boolean
+    required:
+    - skillType
     type: object
   response.AssistantToolInfo:
     properties:
