@@ -46,18 +46,25 @@ export default {
       safetyData: [],
       tableLoading: false,
       tabList: [
-        { name: '个人敏感词', type: 'personal' },
-        { name: '全局敏感词', type: 'global' },
+        { name: this.$t('safety.personal'), type: 'personal' },
+        { name: this.$t('safety.global'), type: 'global' },
       ],
     };
   },
   mounted() {
+    const { type } = this.$route.query || {};
+    this.type = type || 'personal';
     this.getTableData();
   },
   methods: {
     tabClick(type) {
       this.type = type;
       this.getTableData();
+      if (type === 'personal') {
+        this.$router.replace({ query: {} });
+      } else {
+        this.$router.replace({ query: { type } });
+      }
     },
     getTableData() {
       this.tableLoading = true;
