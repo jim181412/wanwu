@@ -24,6 +24,8 @@ class LLMCompletionCall:
             self.llm_api_key = llm_api_key
         if not self.llm_api_key:
             raise ValueError("LLM API key not provided")
+        self.llm_timeout = int(os.getenv("LLM_TIMEOUT", "60"))
+        self.llm_max_retries = int(os.getenv("LLM_MAX_RETRIES", "3"))
         # self.client = OpenAI(base_url=self.llm_base_url, api_key=self.llm_api_key)
 
     def call_api(self, content: str) -> str:
@@ -37,36 +39,40 @@ class LLMCompletionCall:
             Generated text response
         """
             
-        try:
-            # completion = self.client.chat.completions.create(
-            #     model=self.llm_model,
-            #     messages=[{"role": "user", "content": content}],
-            #     temperature=0.3
-            # )
-            # raw = completion.choices[0].message.content or ""
-
-            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.llm_api_key}"}
-            llm_data = {
-                "model": self.llm_model,
-                "temperature": self.temperature,
-                "stream": False,
-                "messages": [{"role": "user", "content": content}],
-            }
-            response = requests.post(self.llm_base_url, json=llm_data, headers=headers, verify=False, timeout=600)
-            result_data = json.loads(response.text)
-            raw = result_data["choices"][0]["message"]["content"] or ""
-            clean_completion = self._clean_llm_content(raw)
-            return clean_completion
-            
-        except Exception as e:
-            logger.error(f"LLM api calling failed. Error: {e}")
-            raise e 
+        last_err = None
+        for i in range(self.llm_max_retries):
+            try:
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.llm_api_key}"}
+                llm_data = {
+                    "model": self.llm_model,
+                    "temperature": self.temperature,
+                    "stream": False,
+                    "messages": [{"role": "user", "content": content}],
+                }
+                response = requests.post(self.llm_base_url, json=llm_data, headers=headers, verify=False, timeout=self.llm_timeout)
+                if response.status_code != 200:
+                    raise RuntimeError(f"LLM http {response.status_code}")
+                result_data = json.loads(response.text)
+                raw = result_data["choices"][0]["message"]["content"] or ""
+                clean_completion = self._clean_llm_content(raw)
+                return clean_completion
+            except Exception as e:
+                last_err = e
+                if i < self.llm_max_retries - 1:
+                    time.sleep(1.5 * (2 ** i))
+                else:
+                    logger.error(f"LLM api calling failed. Error: {e}")
+                    raise e
 
     def _clean_llm_content(self, text: str) -> str:
         if not isinstance(text, str):
             return ""
         t = text.replace("\r\n", "\n").replace("\r", "\n").strip()
         t = re.sub(r"[\u200B-\u200D\uFEFF]", "", t)
+        end_think_re = re.compile(r"</\s*think\s*>", re.IGNORECASE)
+        m_end = end_think_re.search(t)
+        if m_end:
+            t = t[m_end.end():].strip()
         fence_re = re.compile(r"^\s*```(?:\s*\w+)?\s*\n(?P<body>[\s\S]*?)\n\s*```\s*$", re.MULTILINE)
         m = fence_re.match(t)
         if m:
