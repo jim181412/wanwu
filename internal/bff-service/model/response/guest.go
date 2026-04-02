@@ -44,6 +44,11 @@ type CustomLogin struct {
 	LoginButtonColor string         `json:"loginButtonColor"` // 登录按钮颜色
 	WelcomeText      string         `json:"welcomeText"`      // 登录页欢迎标词
 	PlatformDesc     string         `json:"platformDesc"`     // 平台描述词
+	UnifiedAuth      UnifiedAuth    `json:"unifiedAuth"`      // 统一认证配置
+}
+
+type UnifiedAuth struct {
+	Enabled bool `json:"enabled"`
 }
 
 type CustomHome struct {

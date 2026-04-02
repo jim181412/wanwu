@@ -8,6 +8,9 @@ export const login = {
       login: {
         logo: {},
         loginButtonColor: '#5983FF',
+        unifiedAuth: {
+          enabled: false,
+        },
       },
       home: {},
       tab: {},

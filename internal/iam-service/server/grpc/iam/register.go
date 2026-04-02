@@ -8,6 +8,13 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+func (s *Service) RegisterByUsername(ctx context.Context, req *iam_service.RegisterByUsernameReq) (*emptypb.Empty, error) {
+	if err := s.cli.RegisterByUsername(ctx, req.UserName, req.Password); err != nil {
+		return nil, errStatus(errs.Code_IAMRegister, err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (s *Service) RegisterByEmail(ctx context.Context, req *iam_service.RegisterByEmailReq) (*emptypb.Empty, error) {
 	if err := s.cli.RegisterByEmail(ctx, req.UserName, req.Email, req.Code); err != nil {
 		return nil, errStatus(errs.Code_IAMRegister, err)

@@ -254,6 +254,7 @@ import { mapActions, mapGetters } from 'vuex';
 import { checkPerm, PERMS } from '@/router/permission';
 import { menuList } from './menu';
 import { changeLang } from '@/api/user';
+import { USER_API } from '@/utils/requestConstants';
 import {
   fetchPermFirPath,
   fetchCurrentPathIndex,
@@ -386,6 +387,7 @@ export default {
       'commonInfo',
       'permission',
       'userAvatar',
+      'authType',
     ]),
   },
   async created() {
@@ -418,9 +420,16 @@ export default {
     ...mapActions('user', ['LoginOut', 'getPermissionInfo', 'getCommonInfo']),
     checkPerm,
     logout() {
-      window.localStorage.removeItem('access_cert');
-      window.location.href =
+      const loginURL =
         window.location.origin + this.$basePath + '/aibase/login';
+      window.localStorage.removeItem('access_cert');
+      if (this.authType === 'sso') {
+        window.location.href =
+          `${window.location.origin}${this.$basePath}${USER_API}/base/sso/logout?callbackUrl=` +
+          encodeURIComponent(loginURL);
+        return;
+      }
+      window.location.href = loginURL;
     },
     setLocalMenuCollapse() {
       this.isCollapse = localStorage.getItem('menu_collapse') === 'true';

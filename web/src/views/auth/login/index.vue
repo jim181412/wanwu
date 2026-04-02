@@ -100,6 +100,11 @@
               {{ $t('login.button') }}
             </p>
           </div>
+          <div v-if="commonInfo.login.unifiedAuth.enabled" class="auth-bt">
+            <el-button style="width: 100%" @click="doSSOLogin">
+              {{ $t('login.ssoButton') }}
+            </el-button>
+          </div>
           <div class="bottom-text">{{ commonInfo.login.platformDesc }}</div>
         </div>
         <dialog2FA ref="dialog2FA"></dialog2FA>
@@ -114,7 +119,7 @@ import overview from '@/views/auth/layout';
 import { mapActions, mapMutations, mapState } from 'vuex';
 import { getImgVerCode } from '@/api/user';
 import { urlEncrypt } from '@/utils/crypto';
-import { redirectUrl } from '@/utils/util';
+import { USER_API } from '@/utils/requestConstants';
 
 export default {
   components: { overview, dialog2FA },
@@ -148,49 +153,81 @@ export default {
     ) {
       this.setToken('');
     }
+    this.syncParams();
     // 如果已登录，重定向到有权限的页面
     // if (this.$store.state.user.token && localStorage.getItem("access_cert") && !this.$store.state.user.is2FA) redirectUrl()
 
     this.getImgCode();
+    if (this.$route.query.ticket) {
+      this.trySSOLogin();
+    }
   },
   watch: {
     $route: {
       handler() {
-        this.params = this.$route.query;
-        if (
-          this.$store.state.user.token &&
-          localStorage.getItem('access_cert') &&
-          !this.$store.state.user.is2FA &&
-          this.params.client_id
-        )
-          this.$router.push({
-            path: '/oauth',
-            query: this.params,
-          });
+        this.syncParams();
+        this.redirectToOAuthIfNeeded();
       },
       // 深度观察监听
       deep: true,
     },
   },
   mounted() {
-    this.params = this.$route.query;
-    if (
-      this.$store.state.user.token &&
-      localStorage.getItem('access_cert') &&
-      !this.$store.state.user.is2FA &&
-      this.params.client_id
-    )
-      this.$router.push({
-        path: '/oauth',
-        query: this.params,
-      });
+    this.syncParams();
+    this.redirectToOAuthIfNeeded();
   },
   computed: {
     ...mapState('login', ['commonInfo']),
   },
   methods: {
-    ...mapActions('user', ['LoginIn', 'LoginIn2FA1']),
+    ...mapActions('user', ['LoginIn', 'LoginIn2FA1', 'LoginInSSO']),
     ...mapMutations('user', ['setToken']),
+    syncParams() {
+      this.params = this.formatLoginQuery(this.$route.query);
+    },
+    formatLoginQuery(query = {}) {
+      const params = { ...query };
+      delete params.sso;
+      delete params.ticket;
+      delete params.mockUser;
+      delete params.logout;
+      return params;
+    },
+    redirectToOAuthIfNeeded() {
+      if (
+        this.$store.state.user.token &&
+        localStorage.getItem('access_cert') &&
+        !this.$store.state.user.is2FA &&
+        this.params.client_id
+      ) {
+        this.$router.push({
+          path: '/oauth',
+          query: this.params,
+        });
+      }
+    },
+    buildLoginCallbackUrl() {
+      const callback = new URL(window.location.href);
+      callback.searchParams.delete('sso');
+      callback.searchParams.delete('ticket');
+      callback.searchParams.delete('mockUser');
+      callback.searchParams.delete('logout');
+      return callback.toString();
+    },
+    buildSSOLoginUrl() {
+      return (
+        `${window.location.origin}${this.$basePath}${USER_API}/base/sso/login?callbackUrl=` +
+        encodeURIComponent(this.buildLoginCallbackUrl())
+      );
+    },
+    clearSSOQuery() {
+      this.$router
+        .replace({
+          path: '/login',
+          query: this.params,
+        })
+        .catch(() => {});
+    },
     isDisabled() {
       const { username, password, code } = this.form;
       return !(username && password && code);
@@ -204,6 +241,25 @@ export default {
     async getImgCode() {
       const res = await getImgVerCode();
       this.codeData = res.data || {};
+    },
+    async trySSOLogin() {
+      try {
+        const res = await this.LoginInSSO({
+          ticket: this.$route.query.ticket,
+          callbackUrl: this.buildLoginCallbackUrl(),
+          params: this.params,
+        });
+        if (res.code !== 0) {
+          this.clearSSOQuery();
+          await this.getImgCode();
+        }
+      } catch (e) {
+        this.clearSSOQuery();
+        await this.getImgCode();
+      }
+    },
+    doSSOLogin() {
+      window.location.href = this.buildSSOLoginUrl();
     },
     async doLogin() {
       if (this.isDisabled()) return;

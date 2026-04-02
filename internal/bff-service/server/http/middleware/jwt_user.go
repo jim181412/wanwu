@@ -50,7 +50,14 @@ func jwtUserAuth(ctx *gin.Context, token string) {
 
 // 从Header Authorization中获取Token
 func getJWTToken(c *gin.Context) (token string, err error) {
+
+	fmt.Println("-------------------")
+
 	authorization := c.Request.Header.Get("Authorization")
+
+	fmt.Println("authorization", authorization)
+
+	fmt.Println("-------------------")
 	if authorization != "" {
 		tks := strings.Split(authorization, " ")
 		if len(tks) > 1 && tks[0] == "Bearer" {

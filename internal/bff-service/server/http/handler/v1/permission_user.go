@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	err_code "github.com/UnicomAI/wanwu/api/proto/err-code"
 	"github.com/UnicomAI/wanwu/internal/bff-service/model/request"
 	"github.com/UnicomAI/wanwu/internal/bff-service/service"
@@ -22,6 +24,10 @@ import (
 //	@Router			/user [post]
 func CreateUser(ctx *gin.Context) {
 	var req request.UserCreate
+
+	fmt.Print("------当前的创建用户request body-----")
+	fmt.Println(ctx.Request)
+	fmt.Println("---------")
 	if !gin_util.Bind(ctx, &req) {
 		return
 	}

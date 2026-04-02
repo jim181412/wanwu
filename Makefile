@@ -142,6 +142,47 @@ init:
 pb:
 	docker run --name golang-grpc --privileged=true --rm -v $(PWD):/app -w /app crpi-6pj79y7ddzdpexs8.cn-hangzhou.personal.cr.aliyuncs.com/gromitlee/golang:1.24.13-bookworm-protoc29.4-gengo1.34.1-gengrpc1.5.1-gengw2.20.0-genapi2.20.0 bash -c 'make grpc-protoc'
 
+
+# --- bff-service --- 
+run-bff: # 启动bff后自动重启下nginx
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \
+		up -d bff-service
+	docker restart ${WANWU_NGINX_HOST}
+
+stop-bff:
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \
+		down bff-service
+
+# --- iam-service ---
+run-iam:
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \ 
+		up -d iam-service
+
+stop-iam:
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \
+		down iam-service
+
+# ---model-service---
+run-model:
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \
+		up -d model-service
+
+stop-model:
+	docker compose -f docker-compose.yaml \
+		--env-file .env.image.${WANWU_ARCH} \
+		--env-file .env \
+		down model-service
+
 # --- mysql ---
 run-mysql:
 	docker-compose -f docker-compose.yaml \

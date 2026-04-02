@@ -58,6 +58,7 @@ const (
 	IAMService_LoginSendEmailCode_FullMethodName          = "/iam_service.IAMService/LoginSendEmailCode"
 	IAMService_LoginEmailCheck_FullMethodName             = "/iam_service.IAMService/LoginEmailCheck"
 	IAMService_ChangeUserPasswordByEmail_FullMethodName   = "/iam_service.IAMService/ChangeUserPasswordByEmail"
+	IAMService_RegisterByUsername_FullMethodName          = "/iam_service.IAMService/RegisterByUsername"
 	IAMService_RegisterByEmail_FullMethodName             = "/iam_service.IAMService/RegisterByEmail"
 	IAMService_RegisterSendEmailCode_FullMethodName       = "/iam_service.IAMService/RegisterSendEmailCode"
 	IAMService_ResetPasswordSendEmailCode_FullMethodName  = "/iam_service.IAMService/ResetPasswordSendEmailCode"
@@ -151,6 +152,8 @@ type IAMServiceClient interface {
 	// 二阶段登录重置密码与邮箱校验
 	ChangeUserPasswordByEmail(ctx context.Context, in *ChangeUserPasswordByEmailReq, opts ...grpc.CallOption) (*LoginResp, error)
 	// --- register ---
+	// 用户名密码注册用户
+	RegisterByUsername(ctx context.Context, in *RegisterByUsernameReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 邮箱注册用户
 	RegisterByEmail(ctx context.Context, in *RegisterByEmailReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 邮箱注册发送邮件
@@ -563,6 +566,16 @@ func (c *iAMServiceClient) ChangeUserPasswordByEmail(ctx context.Context, in *Ch
 	return out, nil
 }
 
+func (c *iAMServiceClient) RegisterByUsername(ctx context.Context, in *RegisterByUsernameReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, IAMService_RegisterByUsername_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *iAMServiceClient) RegisterByEmail(ctx context.Context, in *RegisterByEmailReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -744,6 +757,8 @@ type IAMServiceServer interface {
 	// 二阶段登录重置密码与邮箱校验
 	ChangeUserPasswordByEmail(context.Context, *ChangeUserPasswordByEmailReq) (*LoginResp, error)
 	// --- register ---
+	// 用户名密码注册用户
+	RegisterByUsername(context.Context, *RegisterByUsernameReq) (*emptypb.Empty, error)
 	// 邮箱注册用户
 	RegisterByEmail(context.Context, *RegisterByEmailReq) (*emptypb.Empty, error)
 	// 邮箱注册发送邮件
@@ -889,6 +904,9 @@ func (UnimplementedIAMServiceServer) LoginEmailCheck(context.Context, *LoginEmai
 }
 func (UnimplementedIAMServiceServer) ChangeUserPasswordByEmail(context.Context, *ChangeUserPasswordByEmailReq) (*LoginResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChangeUserPasswordByEmail not implemented")
+}
+func (UnimplementedIAMServiceServer) RegisterByUsername(context.Context, *RegisterByUsernameReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterByUsername not implemented")
 }
 func (UnimplementedIAMServiceServer) RegisterByEmail(context.Context, *RegisterByEmailReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterByEmail not implemented")
@@ -1625,6 +1643,24 @@ func _IAMService_ChangeUserPasswordByEmail_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IAMService_RegisterByUsername_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterByUsernameReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAMServiceServer).RegisterByUsername(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IAMService_RegisterByUsername_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAMServiceServer).RegisterByUsername(ctx, req.(*RegisterByUsernameReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _IAMService_RegisterByEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterByEmailReq)
 	if err := dec(in); err != nil {
@@ -1963,6 +1999,10 @@ var IAMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangeUserPasswordByEmail",
 			Handler:    _IAMService_ChangeUserPasswordByEmail_Handler,
+		},
+		{
+			MethodName: "RegisterByUsername",
+			Handler:    _IAMService_RegisterByUsername_Handler,
 		},
 		{
 			MethodName: "RegisterByEmail",

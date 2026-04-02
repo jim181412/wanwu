@@ -17,6 +17,7 @@ func registerGuest(apiV1 *gin.RouterGroup) {
 	apiV1.Static("/static", "./configs/microservice/bff-service/static")
 	apiV1.Static("/cache", "./cache")
 
+	mid.Sub("guest").Reg(apiV1, "/base/register", http.MethodPost, v1.RegisterByUsername, "用户名密码注册用户")
 	mid.Sub("guest").Reg(apiV1, "/base/register/email", http.MethodPost, v1.RegisterByEmail, "邮箱注册用户")
 	mid.Sub("guest").Reg(apiV1, "/base/register/email/code", http.MethodPost, v1.ResgisterSendEmailCode, "邮箱注册验证码发送")
 
@@ -25,6 +26,9 @@ func registerGuest(apiV1 *gin.RouterGroup) {
 
 	mid.Sub("guest").Reg(apiV1, "/base/login", http.MethodPost, v1.Login, "用户登录")
 	mid.Sub("guest").Reg(apiV1, "/base/login/email", http.MethodPost, v1.LoginByEmail, "用户邮箱双因子登录")
+	mid.Sub("guest").Reg(apiV1, "/base/sso/login", http.MethodGet, v1.SSOLogin, "统一认证登录跳转")
+	mid.Sub("guest").Reg(apiV1, "/base/sso/exchange", http.MethodGet, v1.SSOExchange, "统一认证票据换取本地登录态")
+	mid.Sub("guest").Reg(apiV1, "/base/sso/logout", http.MethodGet, v1.SSOLogout, "统一认证退出跳转")
 
 	mid.Sub("guest").Reg(apiV1, "/base/captcha", http.MethodGet, v1.GetCaptcha, "获取验证码")
 	mid.Sub("guest").Reg(apiV1, "/base/custom", http.MethodGet, v1.GetLogoCustomInfo, "自定义logo和title")

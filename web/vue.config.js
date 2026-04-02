@@ -11,7 +11,28 @@ function resolve(dir) {
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const isProdOrTest = process.env.NODE_ENV !== 'development';
 
-const proxyUrl = 'http://192.168.0.21:8081';
+const bffProxyUrl = process.env.VUE_APP_BFF_PROXY_URL || 'http://localhost:6668';
+const workflowProxyUrl =
+  process.env.VUE_APP_WORKFLOW_PROXY_URL || 'http://localhost:8999';
+const workflowFileProxyUrl =
+  process.env.VUE_APP_WORKFLOW_FILE_PROXY_URL || 'http://localhost:8998';
+
+function createProxy(target, extra = {}) {
+  return {
+    target,
+    changeOrigin: true,
+    secure: false,
+    ...extra,
+  };
+}
+
+function createRewriteProxy(target, prefix) {
+  return createProxy(target, {
+    pathRewrite: {
+      [`^${prefix}`]: '',
+    },
+  });
+}
 
 module.exports = {
   // 基础配置 详情看文档
@@ -74,7 +95,7 @@ module.exports = {
     });
   },
   devServer: {
-    port: 8080,
+    port: 8082,
     open: false,
     hot: true,
     compress: false,
@@ -90,91 +111,32 @@ module.exports = {
       'Access-Control-Allow-Origin': '*',
     },
     proxy: {
-      '/openAi': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/workflow/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/user/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/service/url/openurl/v1': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/service/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/training/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/resource/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/datacenter/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/modelprocess/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/expand/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/record/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/img': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/konwledgeServe': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/proxyupload': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/use/model/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/prompt/api': {
-        target: proxyUrl,
-        changeOrigin: true,
-        secure: false,
-      },
+      '/openAi': createProxy(bffProxyUrl),
+      '/user/api': createRewriteProxy(bffProxyUrl, '/user/api'),
+      '/service/url/openurl/v1': createRewriteProxy(
+        bffProxyUrl,
+        '/service/url/openurl/v1',
+      ),
+      '/service/api': createRewriteProxy(bffProxyUrl, '/service/api'),
+      '/training/api': createRewriteProxy(bffProxyUrl, '/training/api'),
+      '/resource/api': createRewriteProxy(bffProxyUrl, '/resource/api'),
+      '/datacenter/api': createRewriteProxy(bffProxyUrl, '/datacenter/api'),
+      '/modelprocess/api': createRewriteProxy(bffProxyUrl, '/modelprocess/api'),
+      '/expand/api': createRewriteProxy(bffProxyUrl, '/expand/api'),
+      '/record/api': createRewriteProxy(bffProxyUrl, '/record/api'),
+      '/img': createProxy(bffProxyUrl),
+      '/konwledgeServe': createProxy(bffProxyUrl),
+      '/proxyupload': createProxy(bffProxyUrl),
+      '/use/model/api': createRewriteProxy(bffProxyUrl, '/use/model/api'),
+      '/prompt/api': createRewriteProxy(bffProxyUrl, '/prompt/api'),
+      '/v1/static': createProxy(bffProxyUrl),
+      '/workflow/api': createProxy(workflowProxyUrl, {
+        pathRewrite: {
+          '^/workflow/api': '',
+        },
+      }),
+      '/api': createProxy(workflowProxyUrl),
+      '/workflow/minio/presign': createProxy(workflowFileProxyUrl),
     },
   },
   css: {

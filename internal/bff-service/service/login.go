@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 普通的登陆方法
 func Login(ctx *gin.Context, login *request.Login, language string) (*response.Login, error) {
 	if config.Cfg().CustomInfo.LoginByEmail != 0 {
 		return nil, grpc_util.ErrorStatus(err_code.Code_BFFSingleLoginDisable)
@@ -36,6 +37,7 @@ func Login(ctx *gin.Context, login *request.Login, language string) (*response.L
 	return getLoginResp(ctx, resp)
 }
 
+// 邮箱登录
 func LoginByEmail(ctx *gin.Context, login *request.Login) (*response.LoginByEmail, error) {
 	if config.Cfg().CustomInfo.LoginByEmail == 0 {
 		return nil, grpc_util.ErrorStatus(err_code.Code_BFFLoginDisable)
@@ -70,6 +72,7 @@ func LoginByEmail(ctx *gin.Context, login *request.Login) (*response.LoginByEmai
 	}, nil
 }
 
+// 邮箱检测
 func LoginEmailCheck(ctx *gin.Context, login *request.LoginEmailCheck, language, userId string) (*response.Login, error) {
 	if config.Cfg().CustomInfo.LoginByEmail == 0 {
 		return nil, grpc_util.ErrorStatus(err_code.Code_BFFLoginDisable)
@@ -86,6 +89,7 @@ func LoginEmailCheck(ctx *gin.Context, login *request.LoginEmailCheck, language,
 	return getLoginResp(ctx, resp)
 }
 
+// 更换密码
 func ChangeUserPasswordByEmail(ctx *gin.Context, login *request.ChangeUserPasswordByEmail, language, userId string) (*response.Login, error) {
 	if config.Cfg().CustomInfo.LoginByEmail == 0 {
 		return nil, grpc_util.ErrorStatus(err_code.Code_BFFLoginDisable)
@@ -124,14 +128,17 @@ func LoginSendEmailCode(ctx *gin.Context, email string) error {
 }
 
 func getLoginResp(ctx *gin.Context, resp *iam_service.LoginResp) (*response.Login, error) {
-	// orgs
 	orgs, err := iam.GetOrgSelect(ctx.Request.Context(), &iam_service.GetOrgSelectReq{UserId: resp.User.GetUserId()})
 	if err != nil {
 		return nil, err
 	}
+	return buildLoginResp(ctx, resp.User, resp.Permission, orgs.Selects)
+}
+
+func buildLoginResp(ctx *gin.Context, user *iam_service.UserInfo, permission *iam_service.UserPermission, orgs []*iam_service.IDName) (*response.Login, error) {
 	// jwt token
 	claims, token, err := jwt_util.GenerateToken(
-		resp.User.GetUserId(),
+		user.GetUserId(),
 		jwt_util.UserTokenTimeout,
 	)
 	if err != nil {
@@ -140,15 +147,15 @@ func getLoginResp(ctx *gin.Context, resp *iam_service.LoginResp) (*response.Logi
 	ctx.Set(gin_util.CLAIMS, &claims)
 	// resp
 	return &response.Login{
-		UID:              resp.User.GetUserId(),
-		Username:         resp.User.GetUserName(),
-		Nickname:         resp.User.GetNickName(),
+		UID:              user.GetUserId(),
+		Username:         user.GetUserName(),
+		Nickname:         user.GetNickName(),
 		Token:            token,
 		ExpiresAt:        claims.ExpiresAt * 1000, // 超时事件戳毫秒
 		ExpireIn:         strconv.FormatInt(jwt_util.UserTokenTimeout, 10),
-		Orgs:             toOrgIDNames(ctx, orgs.Selects, resp.User.GetUserId() == config.SystemAdminUserID),
-		OrgPermission:    toOrgPermission(ctx, resp.Permission),
-		Language:         getLanguageByCode(resp.User.Language),
-		IsUpdatePassword: resp.Permission.LastUpdatePasswordAt != 0,
+		Orgs:             toOrgIDNames(ctx, orgs, user.GetUserId() == config.SystemAdminUserID),
+		OrgPermission:    toOrgPermission(ctx, permission),
+		Language:         getLanguageByCode(user.Language),
+		IsUpdatePassword: permission.LastUpdatePasswordAt != 0,
 	}, nil
 }

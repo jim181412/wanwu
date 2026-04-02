@@ -14,6 +14,11 @@ type RegisterByEmail struct {
 	Code     string `json:"code" validate:"required"`     // 邮箱验证码
 }
 
+type RegisterByUsername struct {
+	Username string `json:"username" validate:"required"` // username
+	Password string `json:"password" validate:"required"` // password
+}
+
 type RegisterSendEmailCode struct {
 	Username string `json:"username" validate:"required"` // 用户名
 	Email    string `json:"email" validate:"required"`    // 邮箱
@@ -38,6 +43,10 @@ func (l *Login) Check() error {
 }
 
 func (l *RegisterByEmail) Check() error {
+	return nil
+}
+
+func (l *RegisterByUsername) Check() error {
 	return nil
 }
 

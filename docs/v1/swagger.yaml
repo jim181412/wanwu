@@ -1625,6 +1625,8 @@ definitions:
         items:
           $ref: '#/definitions/request.ConversionStreamFile'
         type: array
+      isCompare:
+        type: boolean
       prompt:
         type: string
       systemPrompt:
@@ -3430,6 +3432,18 @@ definitions:
     - email
     - username
     type: object
+  request.RegisterByUsername:
+    properties:
+      password:
+        description: password
+        type: string
+      username:
+        description: username
+        type: string
+    required:
+    - password
+    - username
+    type: object
   request.RegisterSendEmailCode:
     properties:
       email:
@@ -5009,6 +5023,10 @@ definitions:
       platformDesc:
         description: 平台描述词
         type: string
+      unifiedAuth:
+        allOf:
+        - $ref: '#/definitions/response.UnifiedAuth'
+        description: 统一认证配置
       welcomeText:
         description: 登录页欢迎标词
         type: string
@@ -7312,6 +7330,11 @@ definitions:
       toolSquareId:
         description: 广场mcpId(非空表示来源于广场)
         type: string
+    type: object
+  response.UnifiedAuth:
+    properties:
+      enabled:
+        type: boolean
     type: object
   response.UploadFileResp:
     properties:
@@ -10395,6 +10418,27 @@ paths:
       summary: 重置密码邮箱验证码发送
       tags:
       - guest
+  /base/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户名密码注册信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/request.RegisterByUsername'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户用户名密码注册
+      tags:
+      - guest
   /base/register/email:
     post:
       consumes:
@@ -10435,6 +10479,81 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 邮箱注册验证码发送
+      tags:
+      - guest
+  /base/sso/exchange:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 语言
+        in: header
+        name: X-Language
+        type: string
+      - description: 登录完成后回跳的前端地址
+        in: query
+        name: callbackUrl
+        type: string
+      - description: CAS 返回票据
+        in: query
+        name: ticket
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.Login'
+              type: object
+      summary: 统一认证票据换取本地登录态
+      tags:
+      - guest
+  /base/sso/login:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录完成后回跳的前端地址
+        in: query
+        name: callbackUrl
+        type: string
+      - description: mock 模式使用的用户名
+        in: query
+        name: mockUser
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: 重定向到统一认证中心
+          schema:
+            type: string
+      summary: 统一认证登录跳转
+      tags:
+      - guest
+  /base/sso/logout:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退出完成后回跳的前端地址
+        in: query
+        name: callbackUrl
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: 重定向到统一认证中心退出地址
+          schema:
+            type: string
+      summary: 统一认证退出跳转
       tags:
       - guest
   /chatflow/application/info:
@@ -13681,6 +13800,7 @@ paths:
       description: 获取模型体验对话记录列表
       parameters:
       - description: 模型体验对话ID
+        format: int32
         in: query
         name: modelExperienceId
         required: true

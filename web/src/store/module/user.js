@@ -5,13 +5,14 @@ import {
   login2FA2new,
   login2FA2exist,
   login2FA1,
+  loginSSOExchange,
 } from '@/api/user';
 import { fetchOrgs } from '@/api/permission/org';
 import { jumpOAuth, redirectUserInfoPage } from '@/utils/util';
 import { formatPerms } from '@/router/permission';
 import { replaceRouter } from '@/router';
 
-const processLogin = (res, commit, params) => {
+const processLogin = (res, commit, params, authType = 'local') => {
   const orgs = res.data.orgs || [];
   const orgPermission = res.data.orgPermission || {};
   const orgId = orgPermission.org ? orgPermission.org.id : '';
@@ -31,6 +32,7 @@ const processLogin = (res, commit, params) => {
     commit('setOrgInfo', { orgs });
     commit('setToken', res.data.token);
     commit('setExpiresAt', res.data.expiresAt);
+    commit('setAuthType', authType);
     commit('setPermission', {
       ...permission,
       isAdmin,
@@ -62,6 +64,7 @@ export const user = {
     orgInfo: { orgs: [] },
     token: '',
     expiresAt: 0,
+    authType: '',
     is2FA: false,
     permission: {},
     commonInfo: {},
@@ -92,6 +95,9 @@ export const user = {
     setExpiresAt(state, expiresAt) {
       state.expiresAt = expiresAt;
     },
+    setAuthType(state, authType) {
+      state.authType = authType;
+    },
     setIs2FA(state, is2FA) {
       state.is2FA = is2FA;
     },
@@ -107,6 +113,7 @@ export const user = {
     LoginOut(state) {
       state.userInfo = {};
       state.token = '';
+      state.authType = '';
       state.permission = {};
       localStorage.setItem('access_cert', JSON.stringify(state));
       window.location.reload();
@@ -118,7 +125,13 @@ export const user = {
   actions: {
     async LoginIn({ commit }, { loginInfo, params }) {
       const res = await login(loginInfo);
-      processLogin(res, commit, params);
+      processLogin(res, commit, params, 'local');
+    },
+
+    async LoginInSSO({ commit }, { ticket, callbackUrl, params }) {
+      const res = await loginSSOExchange({ ticket, callbackUrl });
+      processLogin(res, commit, params, 'sso');
+      return res;
     },
 
     async LoginIn2FA1({ commit }, loginInfo) {
@@ -135,7 +148,7 @@ export const user = {
       'oldPassword' in loginInfo
         ? login2FA2new(loginInfo)
         : login2FA2exist(loginInfo));
-      processLogin(res, commit, params);
+      processLogin(res, commit, params, 'local');
     },
 
     // 获取权限
@@ -213,6 +226,9 @@ export const user = {
     },
     expiresAt(state) {
       return state.expiresAt;
+    },
+    authType(state) {
+      return state.authType;
     },
     permission(state) {
       return state.permission;

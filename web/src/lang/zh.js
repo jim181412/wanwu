@@ -11,6 +11,7 @@ export default {
     register: '立即注册',
     forgetPassword: '忘记密码？',
     button: '登 录',
+    ssoButton: '统一认证登录',
     twoFA: {
       title: '两步验证',
       form: {
@@ -28,6 +29,8 @@ export default {
     title: '注 册',
     form: {
       username: '用户名',
+      password: '密码',
+      confirmPassword: '确认密码',
       email: '邮箱',
       code: '验证码',
     },

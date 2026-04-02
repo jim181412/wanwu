@@ -99,6 +99,8 @@ service IAMService {
   rpc ChangeUserPasswordByEmail(ChangeUserPasswordByEmailReq) returns (LoginResp) {}
 
   // --- register ---
+  // 用户名密码注册用户
+  rpc RegisterByUsername(RegisterByUsernameReq) returns (google.protobuf.Empty) {}
   // 邮箱注册用户
   rpc RegisterByEmail(RegisterByEmailReq) returns (google.protobuf.Empty) {}
   // 邮箱注册发送邮件
@@ -492,6 +494,11 @@ message ChangeUserPasswordByEmailReq{
 }
 
 // --- register ---
+
+message RegisterByUsernameReq{
+  string userName = 1;
+  string password = 2;
+}
 
 message RegisterByEmailReq{
   string userName = 1;

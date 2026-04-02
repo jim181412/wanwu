@@ -353,6 +353,10 @@ const constantRoutes = [
   },
   {
     path: '/register',
+    component: () => import('@/views/auth/registerUsername'),
+  },
+  {
+    path: '/register/email',
     component: () => import('@/views/auth/register'),
   },
   {
@@ -393,6 +397,8 @@ const filterAsyncRoutes = (routes, perm) => {
       res.push(tmp);
     }
   });
+
+  // print out router
   return res;
 };
 
@@ -409,6 +415,8 @@ let router = new VueRouter({
   routes: filterAsyncRoutes(constantRoutes, orgPermission),
 });
 
+console.log(baseConfig)
+
 export const replaceRouter = permission => {
   // 创建新的 Router 实例
   const newRouter = new VueRouter({
@@ -420,4 +428,6 @@ export const replaceRouter = permission => {
   router.matcher = newRouter.matcher;
 };
 
+
+// export router
 export default router;

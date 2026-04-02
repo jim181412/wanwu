@@ -37,6 +37,7 @@ func Login(ctx *gin.Context) {
 	if !gin_util.Bind(ctx, &req) {
 		return
 	}
+
 	resp, err := service.Login(ctx, &req, getLanguage(ctx))
 	gin_util.Response(ctx, resp, err)
 }
@@ -98,6 +99,23 @@ func GetLogoCustomInfo(ctx *gin.Context) {
 func GetLanguageSelect(ctx *gin.Context) {
 	resp := service.GetLanguageSelect()
 	gin_util.Response(ctx, resp, nil)
+}
+
+// RegisterByUsername
+//
+//	@Tags		guest
+//	@Summary	用户用户名密码注册
+//	@Accept		json
+//	@Produce	json
+//	@Param		data	body		request.RegisterByUsername	true	"用户名密码注册信息"
+//	@Success	200		{object}	response.Response
+//	@Router		/base/register [post]
+func RegisterByUsername(ctx *gin.Context) {
+	var req request.RegisterByUsername
+	if !gin_util.Bind(ctx, &req) {
+		return
+	}
+	gin_util.Response(ctx, nil, service.RegisterByUsername(ctx, &req))
 }
 
 // RegisterByEmail

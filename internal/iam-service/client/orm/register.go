@@ -92,6 +92,33 @@ func (c *Client) RegisterSendEmailCode(ctx context.Context, username, email stri
 	return nil
 }
 
+func (c *Client) RegisterByUsername(ctx context.Context, username, password string) *errs.Status {
+	nowTs := time.Now().UnixMilli()
+	return c.transaction(ctx, func(tx *gorm.DB) *errs.Status {
+		user := &model.User{
+			Status:               true,
+			CreatorID:            config.AdminUserID(),
+			Name:                 username,
+			Nick:                 username,
+			Password:             password,
+			LastUpdatePasswordAt: nowTs,
+		}
+		if err := createUserTx(tx, user, config.TopOrgID(), nil); err != nil {
+			return err
+		}
+		code := iam_util.RandText(config.Cfg().Register.Email.CodeLength)
+		if err := createOrgTx(tx, &model.Org{
+			Status:    true,
+			CreatorID: user.ID,
+			ParentID:  config.TopOrgID(),
+			Name:      fmt.Sprintf("%v-Space-%v", username, code),
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func (c *Client) RegisterByEmail(ctx context.Context, username, email, code string) *errs.Status {
 	// check email code
 	item, err := redis.IAM().HGet(ctx, getRedisUserRegisterByEmailKey(email), redisUserRegisterByEmailField)

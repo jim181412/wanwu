@@ -286,7 +286,9 @@ export default {
       let wanwuApiUrl = window.API_API_ORIGIN || '';
 
       if (!wanwuApiUrl) {
-        wanwuApiUrl = window.location.origin.replace(':8080', ':8081');
+        const fallbackApiUrl = new URL(window.location.origin);
+        fallbackApiUrl.port = '8081';
+        wanwuApiUrl = fallbackApiUrl.toString().replace(/\/$/, '');
       }
 
       const contextInfo = {

@@ -32,6 +32,13 @@ oauth:
     private_key_path: /app/tmp/oauth_rsa_private.pem
     public_key_path: /app/tmp/oauth_rsa_public.pem
 
+unified-auth:
+  enabled: true
+  mode: mock
+  cas_server_url:
+  username_attr: userName
+  mock_user: admin
+
 decrypt-passwd:
   iv: "sdf4ddfsFD86Vdf2"
   key: "f5Su3GhNMM1rndyp"

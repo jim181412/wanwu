@@ -4829,6 +4829,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/base/register": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guest"
+                ],
+                "summary": "用户用户名密码注册",
+                "parameters": [
+                    {
+                        "description": "用户名密码注册信息",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.RegisterByUsername"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/base/register/email": {
             "post": {
                 "consumes": [
@@ -4890,6 +4923,127 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/base/sso/exchange": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guest"
+                ],
+                "summary": "统一认证票据换取本地登录态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "语言",
+                        "name": "X-Language",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录完成后回跳的前端地址",
+                        "name": "callbackUrl",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "CAS 返回票据",
+                        "name": "ticket",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.Login"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/base/sso/login": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guest"
+                ],
+                "summary": "统一认证登录跳转",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录完成后回跳的前端地址",
+                        "name": "callbackUrl",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "mock 模式使用的用户名",
+                        "name": "mockUser",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "重定向到统一认证中心",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/base/sso/logout": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guest"
+                ],
+                "summary": "统一认证退出跳转",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "退出完成后回跳的前端地址",
+                        "name": "callbackUrl",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "重定向到统一认证中心退出地址",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -10350,6 +10504,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "模型体验对话ID",
                         "name": "modelExperienceId",
                         "in": "query",
@@ -17571,6 +17726,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/request.ConversionStreamFile"
                     }
                 },
+                "isCompare": {
+                    "type": "boolean"
+                },
                 "prompt": {
                     "type": "string"
                 },
@@ -20214,6 +20372,23 @@ const docTemplate = `{
                 }
             }
         },
+        "request.RegisterByUsername": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "description": "password",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "username",
+                    "type": "string"
+                }
+            }
+        },
         "request.RegisterSendEmailCode": {
             "type": "object",
             "required": [
@@ -22559,6 +22734,14 @@ const docTemplate = `{
                 "platformDesc": {
                     "description": "平台描述词",
                     "type": "string"
+                },
+                "unifiedAuth": {
+                    "description": "统一认证配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/response.UnifiedAuth"
+                        }
+                    ]
                 },
                 "welcomeText": {
                     "description": "登录页欢迎标词",
@@ -26004,6 +26187,14 @@ const docTemplate = `{
                 "toolSquareId": {
                     "description": "广场mcpId(非空表示来源于广场)",
                     "type": "string"
+                }
+            }
+        },
+        "response.UnifiedAuth": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
                 }
             }
         },

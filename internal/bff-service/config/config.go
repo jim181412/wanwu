@@ -21,6 +21,7 @@ type Config struct {
 	Log               LogConfig                  `json:"log" mapstructure:"log"`
 	JWT               JWTConfig                  `json:"jwt" mapstructure:"jwt"`
 	OAuth             OAuthConfig                `json:"oauth" mapstructure:"oauth"`
+	UnifiedAuth       UnifiedAuthConfig          `json:"unified-auth" mapstructure:"unified-auth"`
 	Decrypt           DecryptPasswd              `json:"decrypt-passwd" mapstructure:"decrypt-passwd"`
 	I18n              i18n.Config                `json:"i18n" mapstructure:"i18n"`
 	CustomInfo        CustomInfoConfig           `json:"custom-info" mapstructure:"custom-info"`
@@ -92,6 +93,14 @@ type OAuthJWTConfig struct {
 type OAuthConfig struct {
 	Switch int                   `json:"switch" mapstructure:"switch"`
 	RSA    oauth2_util.RSAConfig `json:"rsa" mapstructure:"rsa"`
+}
+
+type UnifiedAuthConfig struct {
+	Enabled      bool   `json:"enabled" mapstructure:"enabled"`
+	Mode         string `json:"mode" mapstructure:"mode"`
+	CASServerURL string `json:"cas_server_url" mapstructure:"cas_server_url"`
+	UsernameAttr string `json:"username_attr" mapstructure:"username_attr"`
+	MockUser     string `json:"mock_user" mapstructure:"mock_user"`
 }
 
 type DecryptPasswd struct {

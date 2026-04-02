@@ -53,6 +53,9 @@ func GetLogoCustomInfo(ctx *gin.Context, mode string) (response.LogoCustomInfo, 
 				Logo:             request.Avatar{Path: mode.Login.LogoPath},
 				LoginButtonColor: mode.Login.LoginButtonColor,
 				WelcomeText:      gin_util.I18nKey(ctx, mode.Login.WelcomeText),
+				UnifiedAuth: response.UnifiedAuth{
+					Enabled: config.Cfg().UnifiedAuth.Enabled,
+				},
 			},
 			Home: response.CustomHome{
 				Logo:            request.Avatar{Path: mode.Home.LogoPath},
@@ -129,7 +132,23 @@ func GetCaptcha(ctx *gin.Context, key string) (*response.Captcha, error) {
 	}, nil
 }
 
+func RegisterByUsername(ctx *gin.Context, register *request.RegisterByUsername) error {
+	if config.Cfg().CustomInfo.RegisterByEmail == 0 {
+		return grpc_util.ErrorStatus(errs.Code_BFFRegisterDisable)
+	}
+	password, err := decryptPD(register.Password)
+	if err != nil {
+		return fmt.Errorf("decrypt password err: %v", err)
+	}
+	_, err = iam.RegisterByUsername(ctx.Request.Context(), &iam_service.RegisterByUsernameReq{
+		UserName: register.Username,
+		Password: password,
+	})
+	return err
+}
+
 func RegisterByEmail(ctx *gin.Context, register *request.RegisterByEmail) error {
+
 	if config.Cfg().CustomInfo.RegisterByEmail == 0 {
 		return grpc_util.ErrorStatus(errs.Code_BFFRegisterDisable)
 	}

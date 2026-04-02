@@ -61,14 +61,20 @@ run-bff: # 启动bff后自动重启下nginx
 	docker compose -f docker-compose-develop.yaml \
 		--env-file .env.image.${WANWU_ARCH} \
 		--env-file .env \
-		up -d bff-service
+		up bff-service
 	docker restart ${WANWU_NGINX_HOST}
+	
 
 stop-bff:
 	docker compose -f docker-compose-develop.yaml \
 		--env-file .env.image.${WANWU_ARCH} \
 		--env-file .env \
 		down bff-service
+
+recompile-bff:
+	make -f Makefile.develop stop-bff
+	make -f Makefile.develop build-bff-amd64
+	make -f Makefile.develop run-bff
 
 # --- iam-service ---
 run-iam:
@@ -82,6 +88,11 @@ stop-iam:
 		--env-file .env.image.${WANWU_ARCH} \
 		--env-file .env \
 		down iam-service
+
+recompile-iam:
+	make -f Makefile.develop stop-iam
+	make -f Makefile.develop build-iam-amd64
+	make -f Makefile.develop run-iam
 
 # --- model-service ---
 run-model:
@@ -227,3 +238,80 @@ stop-rag-wanwu:
 		--env-file .env.image.${WANWU_ARCH} \
 		--env-file .env \
 		down rag
+
+
+
+### ----  build microservice----
+
+
+LDFLAGS := -X main.buildTime=$(shell date +%Y-%m-%d,%H:%M:%S) \
+			-X main.buildVersion=${WANWU_VERSION} \
+			-X main.gitCommitID=$(shell git --git-dir=./.git rev-parse HEAD) \
+			-X main.gitBranch=$(shell git --git-dir=./.git for-each-ref --format='%(refname:short)->%(upstream:short)' $(shell git --git-dir=./.git symbolic-ref -q HEAD)) \
+			-X main.builder=$(shell git config user.name)
+
+build-tidb-setup-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/tidb-setup
+
+build-tidb-setup-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/tidb-setup
+
+build-bff-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/bff-service
+
+build-bff-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/bff-service
+
+build-iam-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/iam-service
+
+build-iam-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/iam-service
+
+build-model-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/model-service
+
+build-model-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/model-service
+
+build-mcp-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/mcp-service
+
+build-mcp-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/mcp-service
+
+build-knowledge-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly vendor -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/knowledge-service
+
+build-knowledge-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly vendor -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/knowledge-service
+
+build-rag-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/rag-service
+
+build-rag-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/rag-service
+
+build-app-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/app-service
+
+build-app-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/app-service
+
+build-operate-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/operate-service
+
+build-operate-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/operate-service
+
+build-assistant-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/assistant-service
+
+build-assistant-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/assistant-service
+
+build-agent-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/amd64/ ./cmd/agent-service
+
+build-agent-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -ldflags "$(LDFLAGS)" -o ./bin/arm64/ ./cmd/agent-service

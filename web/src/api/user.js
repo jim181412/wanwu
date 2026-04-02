@@ -13,6 +13,16 @@ export const login = data => {
   });
 };
 
+// 统一认证票据换取本地登录态
+export const loginSSOExchange = params => {
+  return service({
+    url: `${USER_API}/base/sso/exchange`,
+    method: 'get',
+    params,
+    hasLang,
+  });
+};
+
 // 2FA登录
 // 第一级验证：密码
 export const login2FA1 = data => {
@@ -70,6 +80,15 @@ export const registerCode = data => {
 export const register = data => {
   return service({
     url: `${USER_API}/base/register/email`,
+    method: 'post',
+    data,
+  });
+};
+
+// 用户名密码注册
+export const registerByUsername = data => {
+  return service({
+    url: `${USER_API}/base/register`,
     method: 'post',
     data,
   });
