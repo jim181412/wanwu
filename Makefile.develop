@@ -61,7 +61,7 @@ run-bff: # 启动bff后自动重启下nginx
 	docker compose -f docker-compose-develop.yaml \
 		--env-file .env.image.${WANWU_ARCH} \
 		--env-file .env \
-		up bff-service
+		up -d bff-service
 	docker restart ${WANWU_NGINX_HOST}
 	
 
