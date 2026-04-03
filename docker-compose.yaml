@@ -244,8 +244,8 @@ services:
     container_name: bff-service
     networks:
       - ${WANWU_DOCKER_NETWORK}
-    # ports:
-    #   - 6668:6668
+    ports:
+      - 6668:6668
     volumes:
       - wanwu_shared_data_wga_sandbox_rag:/shared/data/wga/sandbox/rag
       - ${WANWU_PROJECT_DIR}/bff-service/log:/app/log
