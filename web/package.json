@@ -29,6 +29,7 @@
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^1.0.2",
     "axios": "^1.4.0",
+    "core-js": "^3.48.0",
     "crypto-js": "^4.2.0",
     "echarts": "^5.4.3",
     "element-ui": "^2.15.14",

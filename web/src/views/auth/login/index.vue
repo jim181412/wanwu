@@ -100,11 +100,6 @@
               {{ $t('login.button') }}
             </p>
           </div>
-          <div v-if="commonInfo.login.unifiedAuth.enabled" class="auth-bt">
-            <el-button style="width: 100%" @click="doSSOLogin">
-              {{ $t('login.ssoButton') }}
-            </el-button>
-          </div>
           <div class="bottom-text">{{ commonInfo.login.platformDesc }}</div>
         </div>
         <dialog2FA ref="dialog2FA"></dialog2FA>
